@@ -70,6 +70,64 @@ const csvTemplates = [
   { name: "商品マスタテンプレート", description: "商品情報の一括登録用", filename: "product_master_template.csv" },
 ]
 
+const columnSets = [
+  {
+    title: "取得カラム（売上・粗利）",
+    target: "在庫AIデータハブ（売上ビュー）",
+    columns: [
+      "得意先分類1コード",
+      "得意先分類1名",
+      "ブランドコード",
+      "ブランド名",
+      "アイテムコード",
+      "アイテム名",
+      "商品コード",
+      "商品名1/2",
+      "担当者名",
+      "実績年月",
+      "売上日付",
+      "純売上数量",
+      "純売上金額",
+      "粗利金額",
+      "粗利率(%)",
+    ],
+  },
+  {
+    title: "取得カラム（仕入・支払）",
+    target: "在庫AIデータハブ（仕入・支払ビュー）",
+    columns: [
+      "支払先",
+      "支払先略称",
+      "前月末残高",
+      "支払額",
+      "純仕入金額",
+      "税込仕入金額",
+      "当月末残高",
+      "(振込/手形/相殺/値引/手数料)",
+    ],
+  },
+  {
+    title: "取得カラム（請求・入金）",
+    target: "在庫AIデータハブ（請求・入金ビュー）",
+    columns: [
+      "担当者",
+      "請求先略称",
+      "前月末残高",
+      "入金額",
+      "純売上金額",
+      "税込売上金額",
+      "当月末残高",
+      "与信枠残高",
+      "(現金/振込/相殺/手数料)",
+    ],
+  },
+  {
+    title: "取得カラム（年度・粗利推移）",
+    target: "在庫AI計画/粗利推移",
+    columns: ["担当者名", "年度", "得意先分類1名", "純売上数量", "純売上金額", "粗利金額", "粗利率(%)"],
+  },
+]
+
 export function InventoryImport() {
   const [isDragging, setIsDragging] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -180,6 +238,47 @@ export function InventoryImport() {
               <Progress value={uploadProgress} className="h-2" />
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Column mapping areas */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">取得カラムのインポート先</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            CSV / Excel / スプレッドシートのカラムを、どのビューにマッピングするかを事前に確認できます。
+          </p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {columnSets.map((set, index) => (
+            <div key={index} className="p-4 border border-border rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">{set.title}</p>
+                  <p className="text-xs text-muted-foreground">{set.target}</p>
+                </div>
+                <Badge variant="outline">マッピング</Badge>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {set.columns.map((col) => (
+                  <span key={col} className="px-2 py-1 bg-muted rounded text-xs text-muted-foreground">
+                    {col}
+                  </span>
+                ))}
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+                インポート先: 在庫AI &rarr; データハブ / 計画 / 粗利ビューに反映（ダミー）
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm">
+                  CSVを選択
+                </Button>
+                <Button variant="ghost" size="sm">
+                  スプレッドシート連携
+                </Button>
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

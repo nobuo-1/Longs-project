@@ -200,6 +200,33 @@ const weeklyAdvices = [
   },
 ]
 
+const newsItems = [
+  {
+    title: "原材料コスト上昇：ウール糸の国際価格が前月比+8%",
+    source: "日経ファッション",
+    time: "2時間前",
+    impact: "high",
+    summary: "欧州の寒波と物流混乱でウール糸価格が上昇。コート類の原価率上振れが想定されるため、価格転嫁と在庫調整を検討。",
+    tag: "原材料",
+  },
+  {
+    title: "主要ECモールのアルゴリズム更新で商品露出が変動",
+    source: "ECジャーナル",
+    time: "5時間前",
+    impact: "medium",
+    summary: "商品タイトルと素材情報の充実が上位表示に寄与。商品マスタの一括更新を推奨。",
+    tag: "EC",
+  },
+  {
+    title: "物流：港湾の一部混雑解消、納期が通常リードタイムへ",
+    source: "ロジスティクス通信",
+    time: "昨日",
+    impact: "low",
+    summary: "海外工場からの仕入れが平常化。翌月末払いのキャッシュアウトが平準化する見込み。",
+    tag: "物流",
+  },
+]
+
 export function InventoryAIAdvice() {
   const [selectedWeek, setSelectedWeek] = useState(weeklyAdvices[0])
   const [feedbackGiven, setFeedbackGiven] = useState<Record<number, "up" | "down" | null>>({})
@@ -358,6 +385,46 @@ export function InventoryAIAdvice() {
               )
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Industry News */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">業界ニュース（アパレル影響）</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {newsItems.map((news, idx) => (
+            <div
+              key={idx}
+              className="p-3 rounded-xl border border-border/70 hover:border-[#345fe1]/60 hover:shadow-sm transition-colors"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    className={cn(
+                      "text-xs",
+                      news.impact === "high"
+                        ? "bg-red-100 text-red-700"
+                        : news.impact === "medium"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700",
+                    )}
+                  >
+                    影響度: {news.impact === "high" ? "高" : news.impact === "medium" ? "中" : "低"}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {news.tag}
+                  </Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {news.source} ・ {news.time}
+                </span>
+              </div>
+              <p className="font-semibold">{news.title}</p>
+              <p className="text-sm text-muted-foreground mt-1">{news.summary}</p>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

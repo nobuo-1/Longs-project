@@ -120,13 +120,13 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
 
   return (
     <div className="flex flex-col h-screen">
-      <aside className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-200 bg-sidebar text-sidebar-foreground flex flex-col h-full">
+      <aside className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-200 bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden">
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center">
               <Shirt className="w-6 h-6 text-white" />
             </div>
-            <div className="space-y-0.5 hidden group-hover/sidebar:block transition-all">
+            <div className="space-y-0.5 overflow-hidden max-w-0 group-hover/sidebar:max-w-[160px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
               <h1 className="font-bold text-lg">アパレル管理</h1>
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
@@ -135,7 +135,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
 
         {/* Main Menu */}
         <div className="p-2 lg:p-4 flex-1 overflow-y-auto">
-          <p className="text-[11px] font-medium text-sidebar-foreground/50 mb-3 px-2 hidden group-hover/sidebar:block">
+          <p className="text-[11px] font-medium text-sidebar-foreground/50 mb-3 px-2 opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-150 delay-150">
             メインメニュー
           </p>
           <nav>
@@ -149,20 +149,20 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                     <button
                       onClick={() => handleMainClick(item)}
                       className={cn(
-                        "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors text-left",
+                        "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors text-left min-h-[52px]",
                         isActive ? "bg-[#345fe1] text-white" : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5" />
-                        <div className="hidden group-hover/sidebar:block">
-                          <p className="font-medium text-sm">{item.label}</p>
+                        <div className="overflow-hidden max-w-0 group-hover/sidebar:max-w-[180px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+                          <p className="font-medium text-sm whitespace-nowrap">{item.label}</p>
                           <p className={cn("text-xs", isActive ? "text-white/70" : "text-sidebar-foreground/50")}>
                             {item.sublabel}
                           </p>
                         </div>
                       </div>
-                      <div className="hidden group-hover/sidebar:block">
+                      <div className="opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-150 delay-150">
                         {isExpanded ? (
                           <ChevronDown
                             className={cn("w-4 h-4", isActive ? "text-white/70" : "text-sidebar-foreground/50")}
@@ -175,7 +175,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                       </div>
                     </button>
                     {isExpanded && (
-                      <ul className="mt-1 ml-2 space-y-1 hidden group-hover/sidebar:block">
+                      <ul className="mt-1 ml-2 space-y-1 overflow-hidden max-h-0 group-hover/sidebar:max-h-[600px] transition-[max-height] duration-200 delay-100">
                         {item.subItems.map((subItem) => {
                           const SubIcon = subItem.icon
                           const isSubActive = activeSubSection === subItem.id
@@ -184,14 +184,16 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                               <button
                                 onClick={() => handleSubClick(item.id, subItem.id)}
                                 className={cn(
-                                  "w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-left text-sm",
+                                  "w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-left text-sm min-h-[44px]",
                                   isSubActive
                                     ? "bg-[#345fe1]/10 text-[#345fe1] font-medium"
                                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent",
                                 )}
                               >
                                 <SubIcon className="w-4 h-4" />
-                                <span>{subItem.label}</span>
+                                <span className="overflow-hidden max-w-0 group-hover/sidebar:max-w-[170px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+                                  {subItem.label}
+                                </span>
                               </button>
                             </li>
                           )
@@ -207,7 +209,9 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
 
         {/* Preferences */}
         <div className="p-3 lg:p-4">
-          <p className="text-xs font-medium text-sidebar-foreground/50 mb-3 px-2 hidden group-hover/sidebar:block">設定</p>
+          <p className="text-xs font-medium text-sidebar-foreground/50 mb-3 px-2 opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-150 delay-150">
+            設定
+          </p>
           <ul className="space-y-1">
             <li>
               <button
@@ -215,13 +219,17 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left"
               >
                 <Settings className="w-5 h-5" />
-                <span className="text-sm hidden group-hover/sidebar:inline">設定</span>
+                <span className="text-sm overflow-hidden max-w-0 group-hover/sidebar:max-w-[120px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+                  設定
+                </span>
               </button>
             </li>
             <li>
               <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left">
                 <HelpCircle className="w-5 h-5" />
-                <span className="text-sm hidden group-hover/sidebar:inline">ヘルプ</span>
+                <span className="text-sm overflow-hidden max-w-0 group-hover/sidebar:max-w-[120px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+                  ヘルプ
+                </span>
               </button>
             </li>
           </ul>
@@ -236,7 +244,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 alt="ユーザーアバター"
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <div className="text-sm hidden group-hover/sidebar:block">
+              <div className="text-sm overflow-hidden max-w-0 group-hover/sidebar:max-w-[140px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
                 <p className="font-medium">山田 太郎</p>
                 <p className="text-xs text-sidebar-foreground/50">店長</p>
               </div>

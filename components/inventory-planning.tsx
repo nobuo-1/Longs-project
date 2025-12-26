@@ -5,6 +5,8 @@ import { Download, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package,
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
 const planningData = {
@@ -354,6 +356,13 @@ const planningData = {
 export function InventoryPlanning() {
   const [selectedYear, setSelectedYear] = useState<"2024" | "2023">("2024")
   const [showComparison, setShowComparison] = useState(true)
+  const [planInput, setPlanInput] = useState({
+    month: "2024-12",
+    purchaseBudget: 4200000,
+    shipmentAmount: 5200000,
+    grossProfitRate: 34.5,
+    notes: "冬物と春物の谷間で広告を抑制",
+  })
 
   const data = planningData[selectedYear]
 
@@ -466,6 +475,69 @@ export function InventoryPlanning() {
             <Button variant="outline" className="bg-transparent text-[#345fe1] border-[#345fe1]">
               <Download className="w-4 h-4 mr-2" />
               エクスポート
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">計画入力（ダミー）</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>対象月</Label>
+            <Input
+              type="month"
+              value={planInput.month}
+              onChange={(e) => setPlanInput((prev) => ({ ...prev, month: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>仕入予算</Label>
+            <Input
+              type="number"
+              value={planInput.purchaseBudget}
+              onChange={(e) => setPlanInput((prev) => ({ ...prev, purchaseBudget: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>出荷金額</Label>
+            <Input
+              type="number"
+              value={planInput.shipmentAmount}
+              onChange={(e) => setPlanInput((prev) => ({ ...prev, shipmentAmount: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>目標粗利率(%)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={planInput.grossProfitRate}
+              onChange={(e) => setPlanInput((prev) => ({ ...prev, grossProfitRate: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>メモ</Label>
+            <Input
+              value={planInput.notes}
+              onChange={(e) => setPlanInput((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="例) 冬物重点・広告抑制など"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white" type="button">
+              仮登録
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() =>
+                setPlanInput({ month: "", purchaseBudget: 0, shipmentAmount: 0, grossProfitRate: 0, notes: "" })
+              }
+            >
+              クリア
             </Button>
           </div>
         </CardContent>

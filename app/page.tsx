@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { Sidebar, Header } from "@/components/sidebar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { DesignStudio } from "@/components/design-studio"
 import { InventoryAI } from "@/components/inventory-ai"
 import { InventoryTable } from "@/components/inventory-table"
@@ -31,6 +33,29 @@ type SubSection =
 export default function Home() {
   const [activeSection, setActiveSection] = useState<MainSection>("design")
   const [activeSubSection, setActiveSubSection] = useState<SubSection>("design-main")
+
+  const sectionTabs: Record<MainSection, { id: SubSection; label: string }[]> = {
+    design: [
+      { id: "design-main", label: "デザイン作成" },
+      { id: "design-pop", label: "POP" },
+      { id: "design-poster", label: "ポスター" },
+      { id: "design-history", label: "履歴" },
+    ],
+    inventory: [
+      { id: "inventory-main", label: "仕入れ提案" },
+      { id: "inventory-table", label: "データハブ" },
+      { id: "inventory-catalog", label: "カタログ" },
+      { id: "inventory-planning", label: "計画" },
+      { id: "inventory-ai-advice", label: "AIアドバイス" },
+      { id: "inventory-import", label: "インポート" },
+      { id: "inventory-alerts", label: "アラート" },
+    ],
+    finance: [
+      { id: "finance-main", label: "概要" },
+      { id: "finance-reserve", label: "内部留保" },
+      { id: "finance-gantt", label: "ガント" },
+    ],
+  }
 
   const handleSectionChange = (section: MainSection, subSection: SubSection) => {
     setActiveSection(section)
@@ -91,7 +116,37 @@ export default function Home() {
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto">{renderContent()}</main>
+        <main className="flex-1 overflow-auto">
+          <div className="p-4 md:p-6">
+            <Card>
+              <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <CardTitle className="text-xl">
+                    {activeSection === "design" && "デザインスタジオ"}
+                    {activeSection === "inventory" && "在庫AIハブ"}
+                    {activeSection === "finance" && "ファイナンスフロー"}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    配下ページをトグルで切替えて同じカード内で閲覧できます。
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {sectionTabs[activeSection].map((tab) => (
+                    <Button
+                      key={tab.id}
+                      size="sm"
+                      variant={activeSubSection === tab.id ? "default" : "outline"}
+                      onClick={() => handleSectionChange(activeSection, tab.id)}
+                    >
+                      {tab.label}
+                    </Button>
+                  ))}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 md:p-6">{renderContent()}</CardContent>
+            </Card>
+          </div>
+        </main>
       </div>
     </div>
   )
