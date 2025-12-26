@@ -1056,20 +1056,35 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                   {row.events.map((event) => {
                     const startMonth = event.invoiceMonth
                     const span = spanMonths(event.cycle)
+                    const dueMonth = event.dueDate.getMonth()
                     return (
-                      <div
-                        key={event.id}
-                        className={cn(
-                          "absolute top-1 h-6 rounded-full text-[10px] text-white px-2 flex items-center",
-                          event.type === "income" ? "bg-[#345fe1]" : row.isFixed ? "bg-amber-500" : "bg-red-500",
-                        )}
-                        style={{
-                          left: `${(startMonth / 12) * 100}%`,
-                          width: `${(span / 12) * 100}%`,
-                          minWidth: "6%",
-                        }}
-                      >
-                        {event.cycle}
+                      <div key={event.id} className="absolute inset-y-1">
+                        <div
+                          className={cn(
+                            "absolute top-0 bottom-0 rounded-full text-[10px] text-white flex items-center px-2 opacity-70",
+                            event.type === "income" ? "bg-[#345fe1]" : row.isFixed ? "bg-amber-500" : "bg-red-500",
+                          )}
+                          style={{
+                            left: `${(startMonth / 12) * 100}%`,
+                            width: `${(span / 12) * 100}%`,
+                            minWidth: "6%",
+                          }}
+                        >
+                          {event.cycle}
+                        </div>
+                        <div
+                          className={cn(
+                            "absolute top-0 bottom-0 rounded-full text-[10px] text-white flex items-center justify-center",
+                            event.type === "income" ? "bg-[#1f3dbb]" : row.isFixed ? "bg-amber-700" : "bg-red-700",
+                          )}
+                          style={{
+                            left: `${(dueMonth / 12) * 100}%`,
+                            width: `${100 / 12}%`,
+                            minWidth: "6%",
+                          }}
+                        >
+                          入出金
+                        </div>
                       </div>
                     )
                   })}

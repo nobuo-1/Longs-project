@@ -356,6 +356,7 @@ const planningData = {
 export function InventoryPlanning() {
   const [selectedYear, setSelectedYear] = useState<"2024" | "2023">("2024")
   const [showComparison, setShowComparison] = useState(true)
+  const [planDraft, setPlanDraft] = useState(planningData)
   const [planInput, setPlanInput] = useState({
     month: "2024-12",
     purchaseBudget: 4200000,
@@ -364,7 +365,7 @@ export function InventoryPlanning() {
     notes: "冬物と春物の谷間で広告を抑制",
   })
 
-  const data = planningData[selectedYear]
+  const data = planDraft[selectedYear]
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("ja-JP", {
@@ -407,13 +408,15 @@ export function InventoryPlanning() {
     isPercent = false,
   ) => {
     const format = isPercent ? formatPercent : isCurrency ? formatCurrency : (v: number) => v.toString()
+    const yoy =
+      showComparison && lastYear !== 0 ? ((value - lastYear) / Math.abs(lastYear)) * 100 : showComparison ? 0 : null
     return (
       <div className="text-right">
         <div className="font-mono font-medium">{format(value)}</div>
         {showComparison && (
-          <div className="text-[10px] text-muted-foreground/60 mt-0.5">
-            <span className="text-gray-400">昨年: {format(lastYear)}</span>
-            <span className="mx-1">|</span>
+          <div className="text-[10px] text-muted-foreground/60 mt-0.5 flex items-center justify-end gap-1">
+            <span className="text-gray-400">昨年比 {lastYear === 0 ? "-" : `${yoy! >= 0 ? "+" : ""}${yoy?.toFixed(1)}%`}</span>
+            <span className="mx-1 text-gray-300">|</span>
             <span className="text-[#345fe1]/50">予測: {format(prediction)}</span>
           </div>
         )}
@@ -477,6 +480,89 @@ export function InventoryPlanning() {
               エクスポート
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">{selectedYear}年度 計画一括入力</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="px-3 py-2 text-left">月</th>
+                <th className="px-3 py-2 text-right">仕入予算</th>
+                <th className="px-3 py-2 text-right">出荷金額</th>
+                <th className="px-3 py-2 text-right">目標粗利率(%)</th>
+                <th className="px-3 py-2 text-right">在庫計画</th>
+              </tr>
+            </thead>
+            <tbody>
+              {planDraft[selectedYear].map((row, idx) => (
+                <tr key={idx} className="border-b border-border/60">
+                  <td className="px-3 py-2 font-medium">{row.month}</td>
+                  <td className="px-3 py-2 text-right">
+                    <Input
+                      type="number"
+                      value={row.purchaseBudget}
+                      onChange={(e) =>
+                        setPlanDraft((prev) => {
+                          const next = { ...prev }
+                          next[selectedYear][idx].purchaseBudget = Number(e.target.value)
+                          return next
+                        })
+                      }
+                      className="h-9 text-right"
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Input
+                      type="number"
+                      value={row.shipmentAmount}
+                      onChange={(e) =>
+                        setPlanDraft((prev) => {
+                          const next = { ...prev }
+                          next[selectedYear][idx].shipmentAmount = Number(e.target.value)
+                          return next
+                        })
+                      }
+                      className="h-9 text-right"
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={row.shipmentGrossProfitRate}
+                      onChange={(e) =>
+                        setPlanDraft((prev) => {
+                          const next = { ...prev }
+                          next[selectedYear][idx].shipmentGrossProfitRate = Number(e.target.value)
+                          return next
+                        })
+                      }
+                      className="h-9 text-right"
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Input
+                      type="number"
+                      value={row.inventoryPlan}
+                      onChange={(e) =>
+                        setPlanDraft((prev) => {
+                          const next = { ...prev }
+                          next[selectedYear][idx].inventoryPlan = Number(e.target.value)
+                          return next
+                        })
+                      }
+                      className="h-9 text-right"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </CardContent>
       </Card>
 
