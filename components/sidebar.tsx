@@ -122,7 +122,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
   return (
     <div className="flex flex-col h-screen">
       <aside
-        className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-300 ease-in-out bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden relative z-20 shadow-[4px_0_16px_rgba(0,0,0,0.08)] border-r border-sidebar-border"
+        className="group/sidebar w-[98px] hover:w-[358px] transition-[width] duration-300 ease-in-out bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden relative z-20 shadow-[4px_0_16px_rgba(0,0,0,0.08)] border-r border-sidebar-border"
         onMouseEnter={() => {
           setIsHovering(true)
           setExpandedSections([activeSection])
