@@ -18,7 +18,7 @@ function ContextMenuTrigger({
   return (
     <ContextMenuPrimitive.Trigger data-slot="context-menu-trigger" {...props} />
   )
-}
+} 
 
 function ContextMenuGroup({
   ...props

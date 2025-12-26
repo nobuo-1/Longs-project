@@ -6,7 +6,7 @@ import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
-
+ 
 export const metadata: Metadata = {
   title: "アパレル管理システム | Apparel Business Management",
   description: "アパレルビジネスのためのデザイン、在庫、財務管理システム",

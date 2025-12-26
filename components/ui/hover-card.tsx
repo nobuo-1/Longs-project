@@ -18,7 +18,7 @@ function HoverCardTrigger({
     <HoverCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />
   )
 }
-
+ 
 function HoverCardContent({
   className,
   align = 'center',

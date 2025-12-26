@@ -27,6 +27,6 @@ function Checkbox({
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )
-}
+} 
 
 export { Checkbox }

@@ -12,7 +12,7 @@ type ColumnDef = {
   label: string
   align?: "right"
 }
-
+ 
 type DataView = {
   key: "sales" | "payables" | "receivables"
   label: string

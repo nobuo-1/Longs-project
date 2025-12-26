@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-
+ 
 const planningData = {
   2024: [
     {
@@ -438,7 +438,7 @@ export function InventoryPlanning() {
             <div className="flex items-center gap-4">
               <div className="w-32">
                 <label className="text-sm font-medium text-muted-foreground mb-1 block">年度</label>
-                <Select value={selectedYear} onValueChange={(v) => setSelectedYear(v as "2024" | "2023")}>
+                <Select value={selectedYear} onValueChange={(v: "2024" | "2023") => setSelectedYear(v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

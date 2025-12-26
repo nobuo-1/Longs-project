@@ -478,12 +478,6 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     return null
   }
 
-  const spanMonths = (cycle: string) => {
-    if (cycle.includes("翌々月")) return 3
-    if (cycle.includes("翌月")) return 2
-    return 1
-  }
-
   const renderOverview = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1044,56 +1038,6 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
           </div>
         </div>
 
-        <Card className="bg-muted/40">
-          <CardHeader>
-            <CardTitle className="text-sm">サイトスパン（翌月/翌々月払いは3か月帯表示）</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {yearlyRows.map((row) => (
-              <div key={row.id} className="flex items-center gap-3">
-                <span className="text-xs w-28 truncate">{row.partner}</span>
-                <div className="flex-1 h-8 bg-muted rounded-full overflow-hidden relative">
-                  {row.events.map((event) => {
-                    const startMonth = event.invoiceMonth
-                    const span = spanMonths(event.cycle)
-                    const dueMonth = event.dueDate.getMonth()
-                    return (
-                      <div key={event.id} className="absolute inset-y-1">
-                        <div
-                          className={cn(
-                            "absolute top-0 bottom-0 rounded-full text-[10px] text-white flex items-center px-2 opacity-70",
-                            event.type === "income" ? "bg-[#345fe1]" : row.isFixed ? "bg-amber-500" : "bg-red-500",
-                          )}
-                          style={{
-                            left: `${(startMonth / 12) * 100}%`,
-                            width: `${(span / 12) * 100}%`,
-                            minWidth: "6%",
-                          }}
-                        >
-                          {event.cycle}
-                        </div>
-                        <div
-                          className={cn(
-                            "absolute top-0 bottom-0 rounded-full text-[10px] text-white flex items-center justify-center",
-                            event.type === "income" ? "bg-[#1f3dbb]" : row.isFixed ? "bg-amber-700" : "bg-red-700",
-                          )}
-                          style={{
-                            left: `${(dueMonth / 12) * 100}%`,
-                            width: `${100 / 12}%`,
-                            minWidth: "6%",
-                          }}
-                        >
-                          入出金
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-[#345fe1]" />
@@ -1221,7 +1165,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                   placeholder="例）南青山セレクト"
                   value={newSale.partner}
                   onChange={(e) => setNewSale((prev) => ({ ...prev, partner: e.target.value }))}
-                />
+                /> 
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">入金額</p>

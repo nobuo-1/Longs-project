@@ -13,7 +13,7 @@ function Kbd({ className, ...props }: React.ComponentProps<'kbd'>) {
       {...props}
     />
   )
-}
+} 
 
 function KbdGroup({ className, ...props }: React.ComponentProps<'div'>) {
   return (

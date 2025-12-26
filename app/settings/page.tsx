@@ -28,7 +28,7 @@ export default function SettingsPage() {
     mobile: true,
     slack: false,
   })
-
+ 
   const handleSectionChange = (section: MainSection, subSection: SubSection) => {
     setActiveSection(section)
     setActiveSubSection(subSection)

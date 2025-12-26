@@ -15,7 +15,7 @@ interface DesignStudioProps {
   initialType?: "pop" | "poster"
   showHistory?: boolean
 }
-
+ 
 const colorPalette = [
   { name: "ネイビー", hex: "#1e3a5f" },
   { name: "ロイヤルブルー", hex: "#345fe1" },
@@ -56,7 +56,7 @@ const aspectRatios = [
   { id: "A4", label: "A4", desc: "印刷用" },
 ]
 
-const outputTypes = [
+const outputTypes: { id: "pop" | "poster"; name: string; desc: string }[] = [
   { id: "pop", name: "POP", desc: "店頭POP向け" },
   { id: "poster", name: "ポスター", desc: "大型印刷向け" },
 ]
@@ -119,7 +119,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
   const [prompt, setPrompt] = useState("")
   const [selectedStyle, setSelectedStyle] = useState("modern")
   const [selectedRatio, setSelectedRatio] = useState("1:1")
-  const [selectedType, setSelectedType] = useState(initialType || "pop")
+  const [selectedType, setSelectedType] = useState<"pop" | "poster">(initialType || "pop")
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)

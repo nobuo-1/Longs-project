@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge" 
-
+ 
 const highlights = [
   { title: "年間/月次ガント", icon: CalendarClock, description: "当月払いや翌々月15日払いなどのサイトを一目管理" },
   { title: "固定費もPL連動", icon: ShieldCheck, description: "家賃・人件費・サブスクをまとめて可視化" },

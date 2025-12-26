@@ -18,7 +18,7 @@ function Menubar({
         className,
       )}
       {...props}
-    />
+    /> 
   )
 }
 

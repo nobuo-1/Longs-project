@@ -27,7 +27,7 @@ function ScrollArea({
     </ScrollAreaPrimitive.Root>
   )
 }
-
+ 
 function ScrollBar({
   className,
   orientation = 'vertical',

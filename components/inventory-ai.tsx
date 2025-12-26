@@ -1,5 +1,5 @@
 "use client"
-
+ 
 import { useState, useMemo } from "react"
 import { TrendingUp, AlertTriangle, Search, ShoppingCart, Package, BarChart2 } from "lucide-react"
 import { Button } from "@/components/ui/button"

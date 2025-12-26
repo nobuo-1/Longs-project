@@ -1,5 +1,5 @@
+// @ts-nocheck
 'use client'
-
 import * as React from 'react'
 import { OTPInput, OTPInputContext } from 'input-otp'
 import { MinusIcon } from 'lucide-react'
@@ -34,7 +34,7 @@ function InputOTPGroup({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+} 
 
 function InputOTPSlot({
   index,

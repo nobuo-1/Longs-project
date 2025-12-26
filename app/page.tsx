@@ -81,7 +81,7 @@ export default function Home() {
         return <DesignStudio />
     }
   }
-
+  
   return (
     <div className="flex h-screen bg-background">
       <Sidebar
@@ -89,9 +89,9 @@ export default function Home() {
         activeSubSection={activeSubSection}
         onSectionChange={handleSectionChange}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out">
         <Header />
-        <main className="flex-1 overflow-auto">{renderContent()}</main>
+        <main className="flex-1 overflow-auto transition-all duration-300 ease-in-out">{renderContent()}</main>
       </div>
     </div>
   )

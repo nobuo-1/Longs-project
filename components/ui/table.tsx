@@ -16,7 +16,7 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
         {...props}
       />
     </div>
-  )
+  ) 
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {

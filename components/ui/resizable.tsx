@@ -18,7 +18,7 @@ function ResizablePanelGroup({
         className,
       )}
       {...props}
-    />
+    /> 
   )
 }
 

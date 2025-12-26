@@ -50,7 +50,7 @@ interface SidebarProps {
   activeSubSection: SubSection
   onSectionChange: (section: MainSection, subSection: SubSection) => void
 }
-
+ 
 const navItems = [
   {
     id: "design" as const,
@@ -122,7 +122,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
   return (
     <div className="flex flex-col h-screen">
       <aside
-        className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-200 bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden"
+        className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-300 ease-in-out bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden"
         onMouseEnter={() => {
           setIsHovering(true)
           setExpandedSections([activeSection])
@@ -137,7 +137,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
             <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center">
               <Shirt className="w-6 h-6 text-white" />
             </div>
-            <div className="space-y-0.5 overflow-hidden max-w-0 group-hover/sidebar:max-w-[160px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150 min-h-[42px]">
+            <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-[160px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150 min-h-[42px]">
               <h1 className="font-bold text-lg">アパレル管理</h1>
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
@@ -166,8 +166,8 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5" />
-                        <div className="overflow-hidden max-w-0 group-hover/sidebar:max-w-[180px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
-                          <p className="font-medium text-sm whitespace-nowrap">{item.label}</p>
+                        <div className="overflow-hidden w-0 group-hover/sidebar:w-[180px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
+                          <p className="font-medium text-sm">{item.label}</p>
                           <p className={cn("text-xs", isActive ? "text-white/70" : "text-sidebar-foreground/50")}>
                             {item.sublabel}
                           </p>
@@ -207,7 +207,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                                 )}
                               >
                                 <SubIcon className="w-4 h-4" />
-                                <span className="overflow-hidden max-w-0 group-hover/sidebar:max-w-[170px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+                                <span className="overflow-hidden w-0 group-hover/sidebar:w-[170px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
                                   {subItem.label}
                                 </span>
                               </button>
@@ -235,7 +235,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left"
               >
                 <Settings className="w-5 h-5" />
-                <span className="text-sm overflow-hidden max-w-0 group-hover/sidebar:max-w-[120px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
                   設定
                 </span>
               </button>
@@ -243,7 +243,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
             <li>
               <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left">
                 <HelpCircle className="w-5 h-5" />
-                <span className="text-sm overflow-hidden max-w-0 group-hover/sidebar:max-w-[120px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
                   ヘルプ
                 </span>
               </button>
@@ -260,7 +260,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 alt="ユーザーアバター"
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <div className="text-sm overflow-hidden max-w-0 group-hover/sidebar:max-w-[140px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+              <div className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[140px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
                 <p className="font-medium">山田 太郎</p>
                 <p className="text-xs text-sidebar-foreground/50">店長</p>
               </div>

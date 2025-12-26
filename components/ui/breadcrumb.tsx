@@ -47,7 +47,7 @@ function BreadcrumbLink({
       {...props}
     />
   )
-}
+} 
 
 function BreadcrumbPage({ className, ...props }: React.ComponentProps<'span'>) {
   return (
