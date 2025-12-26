@@ -96,6 +96,8 @@ const productCatalog = [
     id: "SKU001",
     name: "春物ジャケット（ネイビー）",
     category: "アウター",
+    brand: "Healthknit",
+    season: "SS",
     manufacturer: "TOKYO BRAND",
     price: 15800,
     currentStock: 12,
@@ -108,7 +110,9 @@ const productCatalog = [
   {
     id: "SKU002",
     name: "コットンTシャツ（白）",
-    category: "トップス",
+    category: "ﾄｯﾌﾟｽ",
+    brand: "FILA",
+    season: "ALL",
     manufacturer: "BASIC WEAR",
     price: 3980,
     currentStock: 45,
@@ -121,7 +125,9 @@ const productCatalog = [
   {
     id: "SKU003",
     name: "デニムパンツ（ブルー）",
-    category: "ボトムス",
+    category: "ﾎﾞﾄﾑ",
+    brand: "Healthknit",
+    season: "ALL",
     manufacturer: "DENIM CO",
     price: 8900,
     currentStock: 35,
@@ -134,7 +140,9 @@ const productCatalog = [
   {
     id: "SKU004",
     name: "リネンシャツ（ベージュ）",
-    category: "トップス",
+    category: "ｼｬﾂ",
+    brand: "Healthknit",
+    season: "SS",
     manufacturer: "SUMMER LINE",
     price: 6800,
     currentStock: 8,
@@ -147,7 +155,9 @@ const productCatalog = [
   {
     id: "SKU005",
     name: "ウールコート（グレー）",
-    category: "アウター",
+    category: "ｱｳﾀｰ",
+    brand: "その他",
+    season: "AW",
     manufacturer: "WINTER STYLE",
     price: 29800,
     currentStock: 28,
@@ -160,7 +170,9 @@ const productCatalog = [
   {
     id: "SKU006",
     name: "スニーカー（白）",
-    category: "シューズ",
+    category: "ｿｯｸｽ",
+    brand: "Reebok",
+    season: "ALL",
     manufacturer: "STEP FORWARD",
     price: 12800,
     currentStock: 22,
@@ -173,7 +185,9 @@ const productCatalog = [
   {
     id: "SKU007",
     name: "レザーベルト（茶）",
-    category: "アクセサリー",
+    category: "小物",
+    brand: "ｱｺﾓﾃﾞ",
+    season: "ALL",
     manufacturer: "CLASSIC LEATHER",
     price: 4500,
     currentStock: 55,
@@ -186,7 +200,9 @@ const productCatalog = [
   {
     id: "SKU008",
     name: "カシミアニット（グレー）",
-    category: "トップス",
+    category: "ﾄｯﾌﾟｽ",
+    brand: "Healthknit",
+    season: "AW",
     manufacturer: "LUXURY KNIT",
     price: 18500,
     currentStock: 15,
@@ -244,6 +260,9 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
   const [store, setStore] = useState("all")
   const [category, setCategory] = useState("all")
   const [manufacturer, setManufacturer] = useState("all")
+  const [season, setSeason] = useState("ALL")
+  const [genreCategory, setGenreCategory] = useState("all")
+  const [genreBrand, setGenreBrand] = useState("all")
   const [period, setPeriod] = useState("month")
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -251,11 +270,10 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
     return productCatalog.filter((product) => {
       const matchesCategory =
         category === "all" ||
-        (category === "tops" && product.category === "トップス") ||
-        (category === "bottoms" && product.category === "ボトムス") ||
-        (category === "outerwear" && product.category === "アウター") ||
-        (category === "shoes" && product.category === "シューズ") ||
-        (category === "accessories" && product.category === "アクセサリー")
+        (category === "tops" && product.category.includes("ﾄｯﾌﾟｽ")) ||
+        (category === "bottoms" && product.category.includes("ﾎﾞﾄﾑ")) ||
+        (category === "outerwear" && product.category.includes("ｱｳﾀｰ")) ||
+        (category === "accessories" && (product.category.includes("小物") || product.category.includes("ｿｯｸｽ")))
 
       const matchesManufacturer =
         manufacturer === "all" ||
@@ -265,15 +283,27 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
         (manufacturer === "summer" && product.manufacturer === "SUMMER LINE") ||
         (manufacturer === "winter" && product.manufacturer === "WINTER STYLE")
 
+      const matchesSeason = season === "ALL" || product.season === season
+
+      const matchesGenreCategory = genreCategory === "all" || product.category === genreCategory
+      const matchesGenreBrand = genreBrand === "all" || (product.brand && product.brand === genreBrand)
+
       const matchesSearch =
         searchQuery === "" ||
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.manufacturer.toLowerCase().includes(searchQuery.toLowerCase())
 
-      return matchesCategory && matchesManufacturer && matchesSearch
+      return (
+        matchesCategory &&
+        matchesManufacturer &&
+        matchesSearch &&
+        matchesSeason &&
+        matchesGenreCategory &&
+        matchesGenreBrand
+      )
     })
-  }, [category, manufacturer, searchQuery])
+  }, [category, manufacturer, searchQuery, season, genreCategory, genreBrand])
 
   const salesData = salesDataByStore[store as keyof typeof salesDataByStore] || salesDataByStore.all
 
@@ -469,6 +499,51 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
                   <SelectItem value="month">月次</SelectItem>
                   <SelectItem value="season">シーズン</SelectItem>
                   <SelectItem value="year">年次</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-32">
+              <label className="text-sm font-medium text-muted-foreground mb-1 block">シーズン</label>
+              <Select value={season} onValueChange={setSeason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="シーズン" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">ALL</SelectItem>
+                  <SelectItem value="SS">SS</SelectItem>
+                  <SelectItem value="AW">AW</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-40">
+              <label className="text-sm font-medium text-muted-foreground mb-1 block">アイテムカテゴリ</label>
+              <Select value={genreCategory} onValueChange={setGenreCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="カテゴリ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全カテゴリ</SelectItem>
+                  {Array.from(new Set(productCatalog.map((p) => p.category))).map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-40">
+              <label className="text-sm font-medium text-muted-foreground mb-1 block">ブランド名</label>
+              <Select value={genreBrand} onValueChange={setGenreBrand}>
+                <SelectTrigger>
+                  <SelectValue placeholder="ブランド" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ブランド</SelectItem>
+                  {Array.from(new Set(productCatalog.map((p) => p.brand || "その他"))).map((brand) => (
+                    <SelectItem key={brand} value={brand}>
+                      {brand}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -186,7 +186,12 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                       </div>
                     </button>
                     {isExpanded && (
-                      <ul className="mt-1 ml-2 space-y-1 overflow-hidden max-h-0 group-hover/sidebar:max-h-[600px] transition-[max-height] duration-200 delay-100">
+                      <ul
+                        className={cn(
+                          "mt-1 ml-2 space-y-1 overflow-hidden transition-[max-height] duration-200 delay-100",
+                          isHovering ? "max-h-[600px]" : "max-h-0",
+                        )}
+                      >
                         {item.subItems.map((subItem) => {
                           const SubIcon = subItem.icon
                           const isSubActive = activeSubSection === subItem.id
