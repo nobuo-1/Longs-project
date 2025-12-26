@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Palette,
   Package,
@@ -92,6 +94,7 @@ const navItems = [
 ]
 
 export function Sidebar({ activeSection, activeSubSection, onSectionChange }: SidebarProps) {
+  const router = useRouter()
   const [expandedSections, setExpandedSections] = useState<MainSection[]>([activeSection])
 
   const toggleExpand = (section: MainSection) => {
@@ -106,6 +109,14 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
 
   const handleSubClick = (mainId: MainSection, subId: SubSection) => {
     onSectionChange(mainId, subId)
+  }
+
+  const handleSettingsNavigation = () => {
+    router.push("/settings")
+  }
+
+  const handleLogout = () => {
+    router.push("/login")
   }
 
   return (
@@ -196,7 +207,10 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
           <p className="text-xs font-medium text-sidebar-foreground/50 mb-3 px-2">設定</p>
           <ul className="space-y-1">
             <li>
-              <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left">
+              <button
+                onClick={handleSettingsNavigation}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left"
+              >
                 <Settings className="w-5 h-5" />
                 <span className="text-sm">設定</span>
               </button>
@@ -224,7 +238,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 <p className="text-xs text-sidebar-foreground/50">店長</p>
               </div>
             </div>
-            <button className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
+            <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
               <LogOut className="w-4 h-4 text-sidebar-foreground/60" />
             </button>
           </div>
@@ -252,6 +266,12 @@ export function Header() {
         </div>
       </div>
       <div className="flex items-center gap-4">
+        <Link href="/settings" className="text-sm text-[#345fe1] hover:underline hidden sm:inline-block">
+          設定
+        </Link>
+        <Link href="/login" className="text-sm text-muted-foreground hover:text-[#345fe1] hidden sm:inline-block">
+          ログイン
+        </Link>
         <button className="relative p-2 rounded-full hover:bg-muted transition-colors">
           <Bell className="w-5 h-5 text-muted-foreground" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
