@@ -122,7 +122,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
   return (
     <div className="flex flex-col h-screen">
       <aside
-        className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-300 ease-in-out bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden"
+        className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-300 ease-in-out bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden relative z-20 shadow-[4px_0_16px_rgba(0,0,0,0.08)] border-r border-sidebar-border"
         onMouseEnter={() => {
           setIsHovering(true)
           setExpandedSections([activeSection])
@@ -133,8 +133,8 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
         }}
       >
         <div className="p-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center">
+          <div className="flex items-center gap-3 min-h-[52px]">
+            <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center shrink-0">
               <Shirt className="w-6 h-6 text-white" />
             </div>
             <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-[160px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150 min-h-[42px]">
@@ -174,15 +174,18 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                         </div>
                       </div>
                       <div className="opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-150 delay-150">
-                        {isExpanded ? (
-                          <ChevronDown
-                            className={cn("w-4 h-4", isActive ? "text-white/70" : "text-sidebar-foreground/50")}
-                          />
-                        ) : (
-                          <ChevronRight
-                            className={cn("w-4 h-4", isActive ? "text-white/70" : "text-sidebar-foreground/50")}
-                          />
-                        )}
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-md flex items-center justify-center",
+                            isActive ? "bg-white/10 text-white" : "bg-sidebar-accent text-sidebar-foreground/60",
+                          )}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </div>
                       </div>
                     </button>
                     {isExpanded && (
@@ -300,13 +303,9 @@ export function Header() {
           <Bell className="w-5 h-5 text-muted-foreground" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
         </button>
-        <div className="flex items-center gap-3">
-          <img
-            src="/professional-japanese-business-person-avatar.jpg"
-            alt="ユーザーアバター"
-            className="w-9 h-9 rounded-full object-cover"
-          />
-          <span className="text-sm font-medium">山田 太郎</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground">山田 太郎</span>
+          <span className="text-xs text-muted-foreground">管理者</span>
         </div>
       </div>
     </header>
