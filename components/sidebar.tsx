@@ -137,7 +137,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
             <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center shrink-0">
               <Shirt className="w-6 h-6 text-white" />
             </div>
-            <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-[160px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150 min-h-[42px]">
+            <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-[160px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75 min-h-[42px]">
               <h1 className="font-bold text-lg">アパレル管理</h1>
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
@@ -166,25 +166,21 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5" />
-                        <div className="overflow-hidden w-0 group-hover/sidebar:w-[180px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
+                        <div className="overflow-hidden w-0 group-hover/sidebar:w-[180px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                           <p className="font-medium text-sm">{item.label}</p>
                           <p className={cn("text-xs", isActive ? "text-white/70" : "text-sidebar-foreground/50")}>
                             {item.sublabel}
                           </p>
                         </div>
                       </div>
-                      <div className="opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-150 delay-150">
+                      <div className="opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,width] duration-150 delay-75 w-0 group-hover/sidebar:w-9 flex justify-end">
                         <div
                           className={cn(
-                            "w-8 h-8 rounded-md flex items-center justify-center",
+                            "w-8 h-8 rounded-md flex items-center justify-center shrink-0",
                             isActive ? "bg-white/10 text-white" : "bg-sidebar-accent text-sidebar-foreground/60",
                           )}
                         >
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
+                          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </div>
                       </div>
                     </button>
@@ -210,7 +206,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                                 )}
                               >
                                 <SubIcon className="w-4 h-4" />
-                                <span className="overflow-hidden w-0 group-hover/sidebar:w-[170px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
+                                <span className="overflow-hidden w-0 group-hover/sidebar:w-[170px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                                   {subItem.label}
                                 </span>
                               </button>
@@ -238,7 +234,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left"
               >
                 <Settings className="w-5 h-5" />
-                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
+                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                   設定
                 </span>
               </button>
@@ -246,7 +242,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
             <li>
               <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left">
                 <HelpCircle className="w-5 h-5" />
-                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
+                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                   ヘルプ
                 </span>
               </button>
@@ -263,7 +259,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 alt="ユーザーアバター"
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <div className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[140px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-300 ease-in-out delay-150">
+              <div className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[140px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                 <p className="font-medium">山田 太郎</p>
                 <p className="text-xs text-sidebar-foreground/50">店長</p>
               </div>
