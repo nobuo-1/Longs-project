@@ -198,6 +198,25 @@ const productCatalog = [
   },
 ]
 
+const slowMovingStock = [
+  { brand: "UrbanLine", item: "コーデュロイジャケット", days: 120, stock: 24, action: "値引き/セット販売" },
+  { brand: "BasicWear", item: "ロゴT（黒）", days: 95, stock: 80, action: "EC限定クーポン" },
+  { brand: "DenimCo", item: "ストレートデニム", days: 110, stock: 46, action: "店舗間移動" },
+]
+
+const rotationLeaders = [
+  { category: "トップス", brand: "BasicWear", rotation: 5.2, quantity: 520 },
+  { category: "アウター", brand: "LuxeCoat", rotation: 3.8, quantity: 210 },
+  { category: "シューズ", brand: "StepForward", rotation: 4.5, quantity: 180 },
+]
+
+const categoryAging = [
+  { category: "アウター", days: 65, target: 75, status: "ok" as const },
+  { category: "トップス", days: 85, target: 70, status: "warn" as const },
+  { category: "アクセサリー", days: 55, target: 60, status: "ok" as const },
+  { category: "ボトムス", days: 98, target: 80, status: "alert" as const },
+]
+
 const columnBlueprints = [
   {
     title: "売上/粗利カラム",
@@ -456,6 +475,97 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="w-4 h-4 text-[#345fe1]" />
+              在庫効率サマリー
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              取得カラムに基づき、回転率・滞留・カテゴリ別目標を俯瞰。仕入れ量の最適化と不動在庫の可視化を狙います。
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 border border-border rounded-lg">
+              <p className="text-xs text-muted-foreground mb-2">回転率が高いブランド/カテゴリ</p>
+              <div className="space-y-2">
+                {rotationLeaders.map((row, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-medium">{row.brand}</p>
+                      <p className="text-xs text-muted-foreground">{row.category}</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700" variant="outline">
+                      回転 {row.rotation} 回
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border border-border rounded-lg">
+              <p className="text-xs text-muted-foreground mb-2">滞留・不動在庫（一定期間未販売）</p>
+              <div className="space-y-2">
+                {slowMovingStock.map((row, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-medium">{row.item}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {row.brand} ｜ {row.days}日滞留
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {row.action}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border border-border rounded-lg md:col-span-2">
+              <p className="text-xs text-muted-foreground mb-2">カテゴリ別 売り切り目標日数</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {categoryAging.map((cat, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "p-3 rounded-lg border",
+                      cat.status === "ok" && "border-green-200 bg-green-50",
+                      cat.status === "warn" && "border-yellow-200 bg-yellow-50",
+                      cat.status === "alert" && "border-red-200 bg-red-50",
+                    )}
+                  >
+                    <p className="text-sm font-semibold">{cat.category}</p>
+                    <p className="text-xs text-muted-foreground">平均 {cat.days}日 / 目標 {cat.target}日</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">在庫アラート・リストアップ</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="p-3 rounded-lg bg-[#345fe1]/10">
+              <p className="text-sm font-semibold text-[#345fe1]">売れていない在庫</p>
+              <p className="text-xs text-muted-foreground">90日以上滞留: 6 SKU / 220点</p>
+            </div>
+            <div className="p-3 rounded-lg bg-orange-50 text-orange-800">
+              <p className="text-sm font-semibold">仕入過多リスク</p>
+              <p className="text-xs">ボトムス：仕入計画に対し在庫率 130%</p>
+            </div>
+            <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800">
+              <p className="text-sm font-semibold">発注余力</p>
+              <p className="text-xs">トップス：在庫回転 5.2回 → 追加発注余地あり</p>
+            </div>
+            <Button variant="outline" className="w-full">
+              在庫データハブを開く
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card className="mb-6">
         <CardHeader>

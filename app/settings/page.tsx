@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Calendar, Settings2, Smartphone, Building2, Shield } from "lucide-react"
+import { Bell, Calendar, Settings2, Smartphone, Building2, Shield, Palette } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,17 +41,17 @@ export default function SettingsPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-auto bg-gradient-to-b from-[#345fe1]/10 via-white to-white">
-          <div className="max-w-6xl mx-auto px-6 py-10 space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="space-y-1">
-                <Badge variant="outline" className="bg-white/80">
-                  設定
-                </Badge>
-                <h1 className="text-2xl font-bold text-foreground">振込サイト・固定費・通知のまとめ設定</h1>
-                <p className="text-muted-foreground">
-                  当月払い/翌月払いなどのサイトと、固定費や通知をまとめて管理。スマホ表示を意識したUIも確認できます。
-                </p>
-              </div>
+      <div className="max-w-6xl mx-auto px-6 py-10 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <Badge variant="outline" className="bg-white/80">
+              設定
+            </Badge>
+            <h1 className="text-2xl font-bold text-foreground">振込サイト・固定費・通知のまとめ設定</h1>
+            <p className="text-muted-foreground">
+              当月払い/翌月払いなどのサイトと、固定費や通知をまとめて管理。スマホ表示を意識したUIも確認できます。
+            </p>
+          </div>
               <div className="flex flex-wrap gap-2">
                 <Button className="gap-2">
                   <Settings2 className="w-4 h-4" />
@@ -60,22 +60,22 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-[#345fe1]" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-[#345fe1]" />
                     振込サイトと締め日のルール
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     主要なサイトパターンを選択し、ガントチャートと連動。数百社の小口先は「その他取引先」として一括反映します。
                   </p>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>売上入金サイト</Label>
-                    <Select
-                      value={siteSettings.receivable}
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>売上入金サイト</Label>
+                  <Select
+                    value={siteSettings.receivable}
                       onValueChange={(value: string) => setSiteSettings((prev) => ({ ...prev, receivable: value }))}
                     >
                       <SelectTrigger className="w-full">
@@ -270,6 +270,51 @@ export default function SettingsPage() {
                     <Badge variant="outline">ガントチャート</Badge>
                     <Badge variant="outline">固定費</Badge>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-[#345fe1]" />
+                    シーズン別売れ行きカラー・アイテム
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    アイテム名やカテゴリから、シーズンごとの売れ行きトレンドを控えめにリストアップします（ダミー）。
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="p-3 border border-border rounded-lg">
+                      <p className="font-semibold">春夏</p>
+                      <p className="text-xs text-muted-foreground">カラー: オフホワイト / ベージュ</p>
+                      <p className="text-xs text-muted-foreground">アイテム: リネンシャツ / カットソー</p>
+                    </div>
+                    <div className="p-3 border border-border rounded-lg">
+                      <p className="font-semibold">秋冬</p>
+                      <p className="text-xs text-muted-foreground">カラー: チャコール / ネイビー</p>
+                      <p className="text-xs text-muted-foreground">アイテム: ウールコート / ニット</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-[#345fe1]" />
+                    カテゴリ別 売り切り期限設定
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {["トップス", "ボトムス", "アウター", "アクセサリー"].map((cat) => (
+                    <div key={cat} className="p-3 border border-border rounded-lg space-y-2">
+                      <p className="text-sm font-semibold">{cat}</p>
+                      <Input type="number" defaultValue={cat === "アウター" ? 90 : 60} />
+                      <p className="text-xs text-muted-foreground">売り切り目標日数</p>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </div>

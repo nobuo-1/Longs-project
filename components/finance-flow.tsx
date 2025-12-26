@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils" 
+import { cn } from "@/lib/utils"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface FinanceFlowProps {
   initialTab?: "overview" | "reserve" | "gantt"
@@ -297,6 +298,8 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
   const [viewYear, setViewYear] = useState(2024)
   const [ganttMode, setGanttMode] = useState<"monthly" | "yearly">("monthly")
   const [selectedEvent, setSelectedEvent] = useState<FinanceEvent | null>(null)
+  const [showSalesModal, setShowSalesModal] = useState(false)
+  const [newSale, setNewSale] = useState({ partner: "", amount: 0, cycle: "当月末払い" })
 
   const totalReservePercent = Object.values(reserveSettings).reduce((a, b) => a + b, 0)
   const reserveAmount = Math.round(totalAssets * (totalReservePercent / 100))
@@ -473,6 +476,12 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
       )
     }
     return null
+  }
+
+  const spanMonths = (cycle: string) => {
+    if (cycle.includes("翌々月")) return 3
+    if (cycle.includes("翌月")) return 2
+    return 1
   }
 
   const renderOverview = () => (
@@ -1035,6 +1044,41 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
           </div>
         </div>
 
+        <Card className="bg-muted/40">
+          <CardHeader>
+            <CardTitle className="text-sm">サイトスパン（翌月/翌々月払いは3か月帯表示）</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {yearlyRows.map((row) => (
+              <div key={row.id} className="flex items-center gap-3">
+                <span className="text-xs w-28 truncate">{row.partner}</span>
+                <div className="flex-1 h-8 bg-muted rounded-full overflow-hidden relative">
+                  {row.events.map((event) => {
+                    const startMonth = event.invoiceMonth
+                    const span = spanMonths(event.cycle)
+                    return (
+                      <div
+                        key={event.id}
+                        className={cn(
+                          "absolute top-1 h-6 rounded-full text-[10px] text-white px-2 flex items-center",
+                          event.type === "income" ? "bg-[#345fe1]" : row.isFixed ? "bg-amber-500" : "bg-red-500",
+                        )}
+                        style={{
+                          left: `${(startMonth / 12) * 100}%`,
+                          width: `${(span / 12) * 100}%`,
+                          minWidth: "6%",
+                        }}
+                      >
+                        {event.cycle}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-[#345fe1]" />
@@ -1071,6 +1115,9 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 </Button>
                 <Button variant={ganttMode === "yearly" ? "default" : "outline"} onClick={() => setGanttMode("yearly")}>
                   年間
+                </Button>
+                <Button variant="outline" onClick={() => setShowSalesModal(true)}>
+                  売上登録
                 </Button>
               </div>
             </div>
@@ -1143,6 +1190,52 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showSalesModal} onOpenChange={setShowSalesModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>売上登録（ダミー入力）</DialogTitle>
+              <DialogDescription>請求先とサイト、入金予定を登録します。</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">請求先</p>
+                <Input
+                  placeholder="例）南青山セレクト"
+                  value={newSale.partner}
+                  onChange={(e) => setNewSale((prev) => ({ ...prev, partner: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">入金額</p>
+                <Input
+                  type="number"
+                  value={newSale.amount}
+                  onChange={(e) => setNewSale((prev) => ({ ...prev, amount: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">サイト</p>
+                <Select
+                  value={newSale.cycle}
+                  onValueChange={(v: string) => setNewSale((prev) => ({ ...prev, cycle: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="当月末払い">当月末払い</SelectItem>
+                    <SelectItem value="翌月末払い">翌月末払い</SelectItem>
+                    <SelectItem value="翌々月15日払い">翌々月15日払い</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => setShowSalesModal(false)} className="w-full bg-[#345fe1] hover:bg-[#2a4bb3] text-white">
+                保存（ダミー）
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </>

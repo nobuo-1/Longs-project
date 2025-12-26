@@ -95,6 +95,7 @@ const navItems = [
 export function Sidebar({ activeSection, activeSubSection, onSectionChange }: SidebarProps) {
   const router = useRouter()
   const [expandedSections, setExpandedSections] = useState<MainSection[]>([activeSection])
+  const [isHovering, setIsHovering] = useState(false)
 
   const toggleExpand = (section: MainSection) => {
     setExpandedSections((prev) => (prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]))
@@ -120,13 +121,23 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
 
   return (
     <div className="flex flex-col h-screen">
-      <aside className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-200 bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden">
+      <aside
+        className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-200 bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden"
+        onMouseEnter={() => {
+          setIsHovering(true)
+          setExpandedSections([activeSection])
+        }}
+        onMouseLeave={() => {
+          setIsHovering(false)
+          setExpandedSections([])
+        }}
+      >
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center">
               <Shirt className="w-6 h-6 text-white" />
             </div>
-            <div className="space-y-0.5 overflow-hidden max-w-0 group-hover/sidebar:max-w-[160px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150">
+            <div className="space-y-0.5 overflow-hidden max-w-0 group-hover/sidebar:max-w-[160px] opacity-0 group-hover/sidebar:opacity-100 transition-[opacity,max-width] duration-200 delay-150 min-h-[42px]">
               <h1 className="font-bold text-lg">アパレル管理</h1>
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
@@ -139,7 +150,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
             メインメニュー
           </p>
           <nav>
-            <ul className="space-y-1">
+            <ul className="space-y-1 pt-1">
               {navItems.map((item) => {
                 const Icon = item.icon
                 const isActive = activeSection === item.id
@@ -249,7 +260,10 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 <p className="text-xs text-sidebar-foreground/50">店長</p>
               </div>
             </div>
-            <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors hidden group-hover/sidebar:inline-flex"
+            >
               <LogOut className="w-4 h-4 text-sidebar-foreground/60" />
             </button>
           </div>
