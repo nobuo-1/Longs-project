@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Palette,
@@ -29,8 +28,8 @@ import {
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 
-type MainSection = "design" | "inventory" | "finance"
-type SubSection =
+export type MainSection = "design" | "inventory" | "finance"
+export type SubSection =
   | "design-main"
   | "design-pop"
   | "design-poster"
@@ -266,12 +265,6 @@ export function Header() {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <Link href="/settings" className="text-sm text-[#345fe1] hover:underline hidden sm:inline-block">
-          設定
-        </Link>
-        <Link href="/login" className="text-sm text-muted-foreground hover:text-[#345fe1] hidden sm:inline-block">
-          ログイン
-        </Link>
         <button className="relative p-2 rounded-full hover:bg-muted transition-colors">
           <Bell className="w-5 h-5 text-muted-foreground" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
