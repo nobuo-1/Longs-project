@@ -198,6 +198,29 @@ const productCatalog = [
   },
 ]
 
+const columnBlueprints = [
+  {
+    title: "売上/粗利カラム",
+    accent: "bg-[#345fe1]/10 text-[#345fe1]",
+    items: ["得意先分類1名", "ブランド名", "アイテム名", "商品名1", "純売上数量", "純売上金額", "粗利金額", "粗利率(%)"],
+  },
+  {
+    title: "仕入/支払カラム",
+    accent: "bg-emerald-500/10 text-emerald-700",
+    items: ["支払先略称", "純仕入金額", "税込仕入金額", "支払額", "当月末残高"],
+  },
+  {
+    title: "請求/入金カラム",
+    accent: "bg-amber-500/10 text-amber-700",
+    items: ["請求先略称", "入金額", "純売上金額", "税込売上金額", "当月末残高", "与信枠残高"],
+  },
+  {
+    title: "年度・粗利推移カラム",
+    accent: "bg-slate-500/10 text-slate-700",
+    items: ["担当者名", "年度", "得意先分類1名", "純売上金額", "粗利金額", "粗利率(%)"],
+  },
+]
+
 export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps) {
   const [store, setStore] = useState("all")
   const [category, setCategory] = useState("all")
@@ -431,6 +454,27 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
               </Select>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">取得カラムとビュー整理</CardTitle>
+          <p className="text-sm text-muted-foreground">売上・仕入・請求・年度粗利のカラムセットをまとめて確認できます。</p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          {columnBlueprints.map((group) => (
+            <div key={group.title} className="p-3 border border-border rounded-lg space-y-2">
+              <span className={cn("text-xs px-2 py-1 rounded-full inline-block", group.accent)}>{group.title}</span>
+              <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
+                {group.items.map((item) => (
+                  <span key={item} className="px-2 py-1 bg-muted rounded-md">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

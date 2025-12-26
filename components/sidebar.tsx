@@ -120,13 +120,13 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
 
   return (
     <div className="flex flex-col h-screen">
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col h-full">
-        <div className="p-6 border-b border-sidebar-border">
+      <aside className="group/sidebar w-[70px] hover:w-64 transition-[width] duration-200 bg-sidebar text-sidebar-foreground flex flex-col h-full">
+        <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center">
               <Shirt className="w-6 h-6 text-white" />
             </div>
-            <div>
+            <div className="space-y-0.5 hidden group-hover/sidebar:block transition-all">
               <h1 className="font-bold text-lg">アパレル管理</h1>
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
@@ -134,8 +134,10 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
         </div>
 
         {/* Main Menu */}
-        <div className="p-4 flex-1 overflow-y-auto">
-          <p className="text-xs font-medium text-sidebar-foreground/50 mb-3 px-2">メインメニュー</p>
+        <div className="p-2 lg:p-4 flex-1 overflow-y-auto">
+          <p className="text-[11px] font-medium text-sidebar-foreground/50 mb-3 px-2 hidden group-hover/sidebar:block">
+            メインメニュー
+          </p>
           <nav>
             <ul className="space-y-1">
               {navItems.map((item) => {
@@ -147,31 +149,33 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                     <button
                       onClick={() => handleMainClick(item)}
                       className={cn(
-                        "w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-left",
+                        "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors text-left",
                         isActive ? "bg-[#345fe1] text-white" : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5" />
-                        <div>
+                        <div className="hidden group-hover/sidebar:block">
                           <p className="font-medium text-sm">{item.label}</p>
                           <p className={cn("text-xs", isActive ? "text-white/70" : "text-sidebar-foreground/50")}>
                             {item.sublabel}
                           </p>
                         </div>
                       </div>
-                      {isExpanded ? (
-                        <ChevronDown
-                          className={cn("w-4 h-4", isActive ? "text-white/70" : "text-sidebar-foreground/50")}
-                        />
-                      ) : (
-                        <ChevronRight
-                          className={cn("w-4 h-4", isActive ? "text-white/70" : "text-sidebar-foreground/50")}
-                        />
-                      )}
+                      <div className="hidden group-hover/sidebar:block">
+                        {isExpanded ? (
+                          <ChevronDown
+                            className={cn("w-4 h-4", isActive ? "text-white/70" : "text-sidebar-foreground/50")}
+                          />
+                        ) : (
+                          <ChevronRight
+                            className={cn("w-4 h-4", isActive ? "text-white/70" : "text-sidebar-foreground/50")}
+                          />
+                        )}
+                      </div>
                     </button>
                     {isExpanded && (
-                      <ul className="mt-1 ml-4 space-y-1">
+                      <ul className="mt-1 ml-2 space-y-1 hidden group-hover/sidebar:block">
                         {item.subItems.map((subItem) => {
                           const SubIcon = subItem.icon
                           const isSubActive = activeSubSection === subItem.id
@@ -202,22 +206,22 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
         </div>
 
         {/* Preferences */}
-        <div className="p-4">
-          <p className="text-xs font-medium text-sidebar-foreground/50 mb-3 px-2">設定</p>
+        <div className="p-3 lg:p-4">
+          <p className="text-xs font-medium text-sidebar-foreground/50 mb-3 px-2 hidden group-hover/sidebar:block">設定</p>
           <ul className="space-y-1">
             <li>
               <button
                 onClick={handleSettingsNavigation}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left"
               >
                 <Settings className="w-5 h-5" />
-                <span className="text-sm">設定</span>
+                <span className="text-sm hidden group-hover/sidebar:inline">設定</span>
               </button>
             </li>
             <li>
               <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left">
                 <HelpCircle className="w-5 h-5" />
-                <span className="text-sm">ヘルプ</span>
+                <span className="text-sm hidden group-hover/sidebar:inline">ヘルプ</span>
               </button>
             </li>
           </ul>
@@ -232,7 +236,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 alt="ユーザーアバター"
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <div className="text-sm">
+              <div className="text-sm hidden group-hover/sidebar:block">
                 <p className="font-medium">山田 太郎</p>
                 <p className="text-xs text-sidebar-foreground/50">店長</p>
               </div>

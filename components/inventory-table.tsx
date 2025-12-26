@@ -1,434 +1,371 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, Download, Filter, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Search, Download, BarChart3, Wallet, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
-const inventoryTableData = [
+type ColumnDef = {
+  key: string
+  label: string
+  align?: "right"
+}
+
+type DataView = {
+  key: "sales" | "payables" | "receivables"
+  label: string
+  description: string
+  columns: ColumnDef[]
+  data: Array<Record<string, string | number>>
+  totals?: { label: string; key: string; prefix?: string }[]
+}
+
+const dataViews: DataView[] = [
   {
-    customerCode: "C001",
-    department: "渋谷店",
-    customerName: "山田商事",
-    productCode: "SKU001",
-    productName: "春物ジャケット（ネイビー）",
-    netSales: 1580000,
-    compositionRatio: 12.5,
-    grossProfit: 474000,
-    grossProfitRate: 30.0,
-    cost: 11060,
-    totalCost: 1106000,
-    profit: 474000,
+    key: "sales",
+    label: "売上・粗利 (得意先/ブランド軸)",
+    description: "得意先分類・ブランド・アイテム軸で純売上数量から粗利率まで確認",
+    columns: [
+      { key: "得意先分類1名", label: "得意先分類1名" },
+      { key: "ブランド名", label: "ブランド名" },
+      { key: "アイテム名", label: "アイテム名" },
+      { key: "商品名1", label: "商品名1" },
+      { key: "担当者名", label: "担当者" },
+      { key: "実績年月", label: "実績年月" },
+      { key: "純売上数量", label: "純売上数量", align: "right" },
+      { key: "純売上金額", label: "純売上金額", align: "right" },
+      { key: "粗利金額", label: "粗利金額", align: "right" },
+      { key: "粗利率", label: "粗利率(%)", align: "right" },
+    ],
+    data: [
+      {
+        得意先分類1名: "セレクトA",
+        ブランド名: "UrbanLine",
+        アイテム名: "トップス",
+        商品名1: "コットンTシャツ",
+        担当者名: "佐藤",
+        実績年月: "2024-04",
+        純売上数量: 340,
+        純売上金額: 1320000,
+        粗利金額: 462000,
+        粗利率: 35.0,
+      },
+      {
+        得意先分類1名: "百貨店B",
+        ブランド名: "LuxeCoat",
+        アイテム名: "アウター",
+        商品名1: "ウールコート",
+        担当者名: "山本",
+        実績年月: "2024-04",
+        純売上数量: 120,
+        純売上金額: 2980000,
+        粗利金額: 894000,
+        粗利率: 30.0,
+      },
+      {
+        得意先分類1名: "ECモール",
+        ブランド名: "BasicWear",
+        アイテム名: "トップス",
+        商品名1: "リブタンク",
+        担当者名: "田中",
+        実績年月: "2024-04",
+        純売上数量: 520,
+        純売上金額: 980000,
+        粗利金額: 343000,
+        粗利率: 35.0,
+      },
+      {
+        得意先分類1名: "専門店C",
+        ブランド名: "DenimCo",
+        アイテム名: "ボトムス",
+        商品名1: "デニムパンツ",
+        担当者名: "森",
+        実績年月: "2024-04",
+        純売上数量: 210,
+        純売上金額: 890000,
+        粗利金額: 267000,
+        粗利率: 30.0,
+      },
+    ],
+    totals: [
+      { label: "純売上金額合計", key: "純売上金額", prefix: "¥" },
+      { label: "粗利金額合計", key: "粗利金額", prefix: "¥" },
+    ],
   },
   {
-    customerCode: "C002",
-    department: "新宿店",
-    customerName: "田中物産",
-    productCode: "SKU002",
-    productName: "コットンTシャツ（白）",
-    netSales: 796000,
-    compositionRatio: 6.3,
-    grossProfit: 318400,
-    grossProfitRate: 40.0,
-    cost: 2388,
-    totalCost: 477600,
-    profit: 318400,
+    key: "payables",
+    label: "仕入・支払 (支払先別)",
+    description: "支払先別に支払額・税込仕入・当月末残高を把握",
+    columns: [
+      { key: "支払先略称", label: "支払先" },
+      { key: "前月末残高", label: "前月末残高", align: "right" },
+      { key: "支払額", label: "支払額", align: "right" },
+      { key: "純仕入金額", label: "純仕入金額", align: "right" },
+      { key: "税込仕入金額", label: "税込仕入金額", align: "right" },
+      { key: "当月末残高", label: "当月末残高", align: "right" },
+    ],
+    data: [
+      {
+        支払先略称: "大阪繊維",
+        前月末残高: 820000,
+        支払額: 1180000,
+        純仕入金額: 1250000,
+        税込仕入金額: 1375000,
+        当月末残高: 940000,
+      },
+      {
+        支払先略称: "京都染工",
+        前月末残高: 540000,
+        支払額: 760000,
+        純仕入金額: 820000,
+        税込仕入金額: 902000,
+        当月末残高: 600000,
+      },
+      {
+        支払先略称: "東京物流",
+        前月末残高: 220000,
+        支払額: 430000,
+        純仕入金額: 450000,
+        税込仕入金額: 495000,
+        当月末残高: 240000,
+      },
+      {
+        支払先略称: "ベトナム工場A",
+        前月末残高: 980000,
+        支払額: 1350000,
+        純仕入金額: 1400000,
+        税込仕入金額: 1540000,
+        当月末残高: 1030000,
+      },
+    ],
+    totals: [
+      { label: "支払額合計", key: "支払額", prefix: "¥" },
+      { label: "税込仕入金額合計", key: "税込仕入金額", prefix: "¥" },
+    ],
   },
   {
-    customerCode: "C003",
-    department: "銀座店",
-    customerName: "佐藤百貨",
-    productCode: "SKU003",
-    productName: "デニムパンツ（ブルー）",
-    netSales: 890000,
-    compositionRatio: 7.0,
-    grossProfit: 267000,
-    grossProfitRate: 30.0,
-    cost: 6230,
-    totalCost: 623000,
-    profit: 267000,
-  },
-  {
-    customerCode: "C001",
-    department: "渋谷店",
-    customerName: "山田商事",
-    productCode: "SKU004",
-    productName: "リネンシャツ（ベージュ）",
-    netSales: 680000,
-    compositionRatio: 5.4,
-    grossProfit: 238000,
-    grossProfitRate: 35.0,
-    cost: 4420,
-    totalCost: 442000,
-    profit: 238000,
-  },
-  {
-    customerCode: "C004",
-    department: "横浜店",
-    customerName: "鈴木貿易",
-    productCode: "SKU005",
-    productName: "ウールコート（グレー）",
-    netSales: 2980000,
-    compositionRatio: 23.5,
-    grossProfit: 894000,
-    grossProfitRate: 30.0,
-    cost: 20860,
-    totalCost: 2086000,
-    profit: 894000,
-  },
-  {
-    customerCode: "C002",
-    department: "新宿店",
-    customerName: "田中物産",
-    productCode: "SKU006",
-    productName: "スニーカー（白）",
-    netSales: 1280000,
-    compositionRatio: 10.1,
-    grossProfit: 448000,
-    grossProfitRate: 35.0,
-    cost: 8320,
-    totalCost: 832000,
-    profit: 448000,
-  },
-  {
-    customerCode: "C003",
-    department: "銀座店",
-    customerName: "佐藤百貨",
-    productCode: "SKU007",
-    productName: "レザーベルト（茶）",
-    netSales: 450000,
-    compositionRatio: 3.6,
-    grossProfit: 180000,
-    grossProfitRate: 40.0,
-    cost: 2700,
-    totalCost: 270000,
-    profit: 180000,
-  },
-  {
-    customerCode: "C005",
-    department: "池袋店",
-    customerName: "伊藤商会",
-    productCode: "SKU008",
-    productName: "カシミアニット（グレー）",
-    netSales: 1850000,
-    compositionRatio: 14.6,
-    grossProfit: 555000,
-    grossProfitRate: 30.0,
-    cost: 12950,
-    totalCost: 1295000,
-    profit: 555000,
-  },
-  {
-    customerCode: "C001",
-    department: "渋谷店",
-    customerName: "山田商事",
-    productCode: "SKU009",
-    productName: "チノパンツ（ベージュ）",
-    netSales: 540000,
-    compositionRatio: 4.3,
-    grossProfit: 189000,
-    grossProfitRate: 35.0,
-    cost: 3510,
-    totalCost: 351000,
-    profit: 189000,
-  },
-  {
-    customerCode: "C004",
-    department: "横浜店",
-    customerName: "鈴木貿易",
-    productCode: "SKU010",
-    productName: "ポロシャツ（白）",
-    netSales: 420000,
-    compositionRatio: 3.3,
-    grossProfit: 168000,
-    grossProfitRate: 40.0,
-    cost: 2520,
-    totalCost: 252000,
-    profit: 168000,
-  },
-  {
-    customerCode: "C002",
-    department: "新宿店",
-    customerName: "田中物産",
-    productCode: "SKU011",
-    productName: "スラックス（ネイビー）",
-    netSales: 720000,
-    compositionRatio: 5.7,
-    grossProfit: 252000,
-    grossProfitRate: 35.0,
-    cost: 4680,
-    totalCost: 468000,
-    profit: 252000,
-  },
-  {
-    customerCode: "C005",
-    department: "池袋店",
-    customerName: "伊藤商会",
-    productCode: "SKU012",
-    productName: "ブルゾン（カーキ）",
-    netSales: 980000,
-    compositionRatio: 7.7,
-    grossProfit: 343000,
-    grossProfitRate: 35.0,
-    cost: 6370,
-    totalCost: 637000,
-    profit: 343000,
+    key: "receivables",
+    label: "請求・入金 (請求先別)",
+    description: "請求先別に入金額・税込売上・残高・与信を確認",
+    columns: [
+      { key: "請求先略称", label: "請求先" },
+      { key: "担当者", label: "担当者" },
+      { key: "入金額", label: "入金額", align: "right" },
+      { key: "純売上金額", label: "純売上金額", align: "right" },
+      { key: "税込売上金額", label: "税込売上金額", align: "right" },
+      { key: "当月末残高", label: "当月末残高", align: "right" },
+      { key: "与信枠残高", label: "与信枠残高", align: "right" },
+    ],
+    data: [
+      {
+        請求先略称: "南青山セレクト",
+        担当者: "佐藤",
+        入金額: 3200000,
+        純売上金額: 3450000,
+        税込売上金額: 3795000,
+        当月末残高: 210000,
+        与信枠残高: 1800000,
+      },
+      {
+        請求先略称: "北陸百貨店",
+        担当者: "田中",
+        入金額: 2100000,
+        純売上金額: 2280000,
+        税込売上金額: 2508000,
+        当月末残高: 420000,
+        与信枠残高: 1300000,
+      },
+      {
+        請求先略称: "九州チェーン",
+        担当者: "山本",
+        入金額: 1650000,
+        純売上金額: 1760000,
+        税込売上金額: 1936000,
+        当月末残高: 320000,
+        与信枠残高: 900000,
+      },
+      {
+        請求先略称: "ECプラットフォーム",
+        担当者: "森",
+        入金額: 900000,
+        純売上金額: 950000,
+        税込売上金額: 1045000,
+        当月末残高: 60000,
+        与信枠残高: 700000,
+      },
+    ],
+    totals: [
+      { label: "入金額合計", key: "入金額", prefix: "¥" },
+      { label: "税込売上金額合計", key: "税込売上金額", prefix: "¥" },
+    ],
   },
 ]
 
-type SortKey = keyof (typeof inventoryTableData)[0]
-type SortOrder = "asc" | "desc"
+const formatNumber = (value: number, isPercent = false) =>
+  isPercent ? `${value.toFixed(1)}%` : new Intl.NumberFormat("ja-JP").format(value)
 
 export function InventoryTable() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [departmentFilter, setDepartmentFilter] = useState("all")
-  const [sortKey, setSortKey] = useState<SortKey>("customerCode")
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const [activeView, setActiveView] = useState<DataView["key"]>("sales")
 
-  const filteredAndSortedData = useMemo(() => {
-    let data = [...inventoryTableData]
+  const currentView = dataViews.find((v) => v.key === activeView) || dataViews[0]
 
-    // Filter by search
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      data = data.filter(
-        (item) =>
-          item.customerCode.toLowerCase().includes(query) ||
-          item.customerName.toLowerCase().includes(query) ||
-          item.productCode.toLowerCase().includes(query) ||
-          item.productName.toLowerCase().includes(query),
-      )
-    }
-
-    // Filter by department
-    if (departmentFilter !== "all") {
-      data = data.filter((item) => item.department === departmentFilter)
-    }
-
-    // Sort
-    data.sort((a, b) => {
-      const aVal = a[sortKey]
-      const bVal = b[sortKey]
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sortOrder === "asc" ? aVal - bVal : bVal - aVal
-      }
-      return sortOrder === "asc" ? String(aVal).localeCompare(String(bVal)) : String(bVal).localeCompare(String(aVal))
-    })
-
-    return data
-  }, [searchQuery, departmentFilter, sortKey, sortOrder])
-
-  const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage)
-  const paginatedData = filteredAndSortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-    } else {
-      setSortKey(key)
-      setSortOrder("asc")
-    }
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("ja-JP", {
-      style: "currency",
-      currency: "JPY",
-      maximumFractionDigits: 0,
-    }).format(value)
-  }
-
-  const formatPercent = (value: number) => `${value.toFixed(1)}%`
-
-  const departments = [...new Set(inventoryTableData.map((d) => d.department))]
-
-  // Calculate totals
-  const totals = useMemo(() => {
-    return filteredAndSortedData.reduce(
-      (acc, item) => ({
-        netSales: acc.netSales + item.netSales,
-        grossProfit: acc.grossProfit + item.grossProfit,
-        totalCost: acc.totalCost + item.totalCost,
-        profit: acc.profit + item.profit,
-      }),
-      { netSales: 0, grossProfit: 0, totalCost: 0, profit: 0 },
+  const filteredData = useMemo(() => {
+    const query = searchQuery.toLowerCase()
+    if (!query) return currentView.data
+    return currentView.data.filter((row) =>
+      Object.values(row).some((value) => String(value).toLowerCase().includes(query)),
     )
-  }, [filteredAndSortedData])
+  }, [currentView, searchQuery])
+
+  const sumByKey = (key: string) =>
+    filteredData.reduce((acc, row) => acc + (typeof row[key] === "number" ? (row[key] as number) : 0), 0)
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-foreground">在庫一覧表</h2>
-        <p className="text-muted-foreground">Excel形式の詳細在庫データ</p>
+    <div className="p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory AI</p>
+          <h2 className="text-2xl font-bold text-foreground">在庫AIデータハブ</h2>
+          <p className="text-muted-foreground text-sm">
+            取得カラムに合わせて売上・仕入・請求を切り替え。店舗/ブランドの粒度でダミーデータを確認できます。
+          </p>
+        </div>
+        <Button variant="outline" className="gap-2">
+          <Download className="w-4 h-4" />
+          CSV出力（ダミー）
+        </Button>
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium text-muted-foreground mb-1 block">検索</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="得意先コード、商品名など..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">売上/粗利カラム</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 flex items-center gap-3">
+            <BarChart3 className="w-10 h-10 text-[#345fe1]" />
+            <div>
+              <p className="font-semibold text-lg">{formatNumber(sumByKey("純売上金額"))} 円</p>
+              <p className="text-xs text-muted-foreground">純売上金額合計 (view: 売上・粗利)</p>
             </div>
-            <div className="w-40">
-              <label className="text-sm font-medium text-muted-foreground mb-1 block">部門</label>
-              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="部門を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部門</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">仕入/支払カラム</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 flex items-center gap-3">
+            <Wallet className="w-10 h-10 text-[#345fe1]" />
+            <div>
+              <p className="font-semibold text-lg">{formatNumber(sumByKey("支払額"))} 円</p>
+              <p className="text-xs text-muted-foreground">支払額合計 (view: 仕入・支払)</p>
             </div>
-            <Button variant="outline" className="bg-transparent">
-              <Filter className="w-4 h-4 mr-2" />
-              詳細フィルター
-            </Button>
-            <Button variant="outline" className="bg-transparent text-[#345fe1] border-[#345fe1]">
-              <Download className="w-4 h-4 mr-2" />
-              エクスポート
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">請求/入金カラム</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 flex items-center gap-3">
+            <Building2 className="w-10 h-10 text-[#345fe1]" />
+            <div>
+              <p className="font-semibold text-lg">{formatNumber(sumByKey("入金額"))} 円</p>
+              <p className="text-xs text-muted-foreground">入金額合計 (view: 請求・入金)</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">在庫データ（{filteredAndSortedData.length}件）</CardTitle>
+        <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">{currentView.label}</CardTitle>
+            <p className="text-sm text-muted-foreground">{currentView.description}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {dataViews.map((view) => (
+              <Button
+                key={view.key}
+                variant={view.key === activeView ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveView(view.key)}
+              >
+                {view.label}
+              </Button>
+            ))}
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-[#345fe1]/20 bg-[#345fe1]/5">
-                  {[
-                    { key: "customerCode", label: "得意先コード" },
-                    { key: "department", label: "部門" },
-                    { key: "customerName", label: "得意先名" },
-                    { key: "productCode", label: "商品コード" },
-                    { key: "productName", label: "商品名" },
-                    { key: "netSales", label: "純売上" },
-                    { key: "compositionRatio", label: "構成比" },
-                    { key: "grossProfit", label: "粗利益" },
-                    { key: "grossProfitRate", label: "粗利益率" },
-                    { key: "cost", label: "原価" },
-                    { key: "totalCost", label: "原価合計" },
-                    { key: "profit", label: "利益" },
-                  ].map((col) => (
+        <CardContent className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="得意先 / ブランド / 支払先 / 請求先 で検索"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="min-w-full text-sm">
+              <thead className="bg-muted/60">
+                <tr>
+                  {currentView.columns.map((col) => (
                     <th
                       key={col.key}
-                      onClick={() => handleSort(col.key as SortKey)}
-                      className="text-left py-3 px-3 text-xs font-semibold text-[#345fe1] cursor-pointer hover:bg-[#345fe1]/10 whitespace-nowrap"
+                      className={cn(
+                        "px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap",
+                        col.align === "right" && "text-right",
+                      )}
                     >
-                      <div className="flex items-center gap-1">
-                        {col.label}
-                        <ArrowUpDown className="w-3 h-3" />
-                      </div>
+                      {col.label}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {paginatedData.map((item, idx) => (
-                  <tr
-                    key={`${item.customerCode}-${item.productCode}-${idx}`}
-                    className={cn(
-                      "border-b border-border/50 hover:bg-muted/50 transition-colors",
-                      idx % 2 === 0 ? "bg-white" : "bg-muted/20",
-                    )}
-                  >
-                    <td className="py-2.5 px-3 font-mono text-xs">{item.customerCode}</td>
-                    <td className="py-2.5 px-3">{item.department}</td>
-                    <td className="py-2.5 px-3 font-medium">{item.customerName}</td>
-                    <td className="py-2.5 px-3 font-mono text-xs">{item.productCode}</td>
-                    <td className="py-2.5 px-3">{item.productName}</td>
-                    <td className="py-2.5 px-3 text-right font-medium">{formatCurrency(item.netSales)}</td>
-                    <td className="py-2.5 px-3 text-right">{formatPercent(item.compositionRatio)}</td>
-                    <td className="py-2.5 px-3 text-right text-green-600 font-medium">
-                      {formatCurrency(item.grossProfit)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right">{formatPercent(item.grossProfitRate)}</td>
-                    <td className="py-2.5 px-3 text-right">{formatCurrency(item.cost)}</td>
-                    <td className="py-2.5 px-3 text-right text-red-600">{formatCurrency(item.totalCost)}</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-[#345fe1]">{formatCurrency(item.profit)}</td>
+                {filteredData.map((row, idx) => (
+                  <tr key={idx} className="border-t border-border/70 hover:bg-muted/40">
+                    {currentView.columns.map((col) => {
+                      const value = row[col.key]
+                      const isPercent = typeof value === "number" && col.label.includes("%")
+                      const isCurrency = typeof value === "number" && !isPercent
+                      return (
+                        <td
+                          key={`${col.key}-${idx}`}
+                          className={cn("px-4 py-2.5 whitespace-nowrap", col.align === "right" && "text-right")}
+                        >
+                          {typeof value === "number"
+                            ? isPercent
+                              ? formatNumber(value, true)
+                              : `¥${formatNumber(value)}`
+                            : value}
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
-                <tr className="border-t-2 border-[#345fe1]/30 bg-[#345fe1]/5 font-bold">
-                  <td colSpan={5} className="py-3 px-3 text-right">
-                    合計
-                  </td>
-                  <td className="py-3 px-3 text-right">{formatCurrency(totals.netSales)}</td>
-                  <td className="py-3 px-3 text-right">100%</td>
-                  <td className="py-3 px-3 text-right text-green-600">{formatCurrency(totals.grossProfit)}</td>
-                  <td className="py-3 px-3 text-right">
-                    {formatPercent((totals.grossProfit / totals.netSales) * 100)}
-                  </td>
-                  <td className="py-3 px-3 text-right">-</td>
-                  <td className="py-3 px-3 text-right text-red-600">{formatCurrency(totals.totalCost)}</td>
-                  <td className="py-3 px-3 text-right text-[#345fe1]">{formatCurrency(totals.profit)}</td>
-                </tr>
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              {filteredAndSortedData.length}件中 {(currentPage - 1) * itemsPerPage + 1}-
-              {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)}件を表示
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="bg-transparent"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(page)}
-                  className={currentPage === page ? "bg-[#345fe1] hover:bg-[#2a4bb3]" : "bg-transparent"}
-                >
-                  {page}
-                </Button>
+          {currentView.totals && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {currentView.totals.map((total) => (
+                <Card key={total.key} className="bg-muted/40">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">{total.label}</p>
+                    <p className="text-lg font-bold">
+                      {total.prefix}
+                      {formatNumber(sumByKey(total.key))}
+                    </p>
+                  </CardContent>
+                </Card>
               ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="bg-transparent"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>
