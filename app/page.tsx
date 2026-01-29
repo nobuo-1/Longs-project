@@ -13,9 +13,7 @@ import { FinanceFlow } from "@/components/finance-flow"
 
 type MainSection = "design" | "inventory" | "finance"
 type SubSection =
-  | "design-main"
   | "design-pop"
-  | "design-poster"
   | "design-history"
   | "inventory-main"
   | "inventory-table"
@@ -30,7 +28,7 @@ type SubSection =
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState<MainSection>("design")
-  const [activeSubSection, setActiveSubSection] = useState<SubSection>("design-main")
+  const [activeSubSection, setActiveSubSection] = useState<SubSection>("design-pop")
 
   const handleSectionChange = (section: MainSection, subSection: SubSection) => {
     setActiveSection(section)
@@ -40,18 +38,10 @@ export default function Home() {
   const renderContent = () => {
     switch (activeSubSection) {
       // Design Studio pages
-      case "design-main":
       case "design-pop":
-      case "design-poster":
+        return <DesignStudio initialType="pop" />
       case "design-history":
-        return (
-          <DesignStudio
-            initialType={
-              activeSubSection === "design-pop" ? "pop" : activeSubSection === "design-poster" ? "poster" : undefined
-            }
-            showHistory={activeSubSection === "design-history"}
-          />
-        )
+        return <DesignStudio showHistory />
 
       // Inventory AI pages
       case "inventory-main":
@@ -78,7 +68,7 @@ export default function Home() {
         return <FinanceFlow initialTab="gantt" />
 
       default:
-        return <DesignStudio />
+        return <DesignStudio initialType="pop" />
     }
   }
   

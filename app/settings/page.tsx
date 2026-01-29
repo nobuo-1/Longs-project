@@ -15,7 +15,7 @@ import { Header, Sidebar, type MainSection, type SubSection } from "@/components
 export default function SettingsPage() {
   const router = useRouter()
   const [activeSection, setActiveSection] = useState<MainSection>("design")
-  const [activeSubSection, setActiveSubSection] = useState<SubSection>("design-main")
+  const [activeSubSection, setActiveSubSection] = useState<SubSection>("design-pop")
   const [siteSettings, setSiteSettings] = useState({
     receivable: "当月末払い",
     payable: "翌月15日払い",

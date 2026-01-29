@@ -30,9 +30,7 @@ import { Input } from "@/components/ui/input"
 
 export type MainSection = "design" | "inventory" | "finance"
 export type SubSection =
-  | "design-main"
   | "design-pop"
-  | "design-poster"
   | "design-history"
   | "inventory-main"
   | "inventory-table"
@@ -58,9 +56,7 @@ const navItems = [
     sublabel: "画像生成",
     icon: Palette,
     subItems: [
-      { id: "design-main" as const, label: "デザイン作成", icon: ImageIcon },
       { id: "design-pop" as const, label: "POP作成", icon: FileText },
-      { id: "design-poster" as const, label: "ポスター作成", icon: BarChart3 },
       { id: "design-history" as const, label: "作成履歴", icon: BookOpen },
     ],
   },
