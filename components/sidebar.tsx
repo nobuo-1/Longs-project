@@ -13,40 +13,36 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
-  ImageIcon,
   FileText,
   BarChart3,
   Table,
   BookOpen,
   TrendingUp,
-  PiggyBank,
   Calendar,
   Bot,
   Upload,
-  AlertTriangle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
 
-export type MainSection = "design" | "inventory" | "finance"
+export type MainSection = "design" | "inventory" | "finance" | "data"
 export type SubSection =
   | "design-pop"
   | "design-history"
   | "inventory-main"
-  | "inventory-table"
+  | "inventory-insights"
   | "inventory-catalog"
   | "inventory-planning"
   | "inventory-ai-advice"
-  | "inventory-import"
-  | "inventory-alerts"
+  | "inventory-procurement"
   | "finance-main"
-  | "finance-reserve"
   | "finance-gantt"
+  | "data-main"
+  | "data-registration"
 
 interface SidebarProps {
   activeSection: MainSection
   activeSubSection: SubSection
-  onSectionChange: (section: MainSection, subSection: SubSection) => void
+  onSectionChangeAction: (section: MainSection, subSection: SubSection) => void
 }
  
 const navItems = [
@@ -67,12 +63,21 @@ const navItems = [
     icon: Package,
     subItems: [
       { id: "inventory-main" as const, label: "仕入れ提案", icon: TrendingUp },
-      { id: "inventory-table" as const, label: "在庫一覧表", icon: Table },
-      { id: "inventory-catalog" as const, label: "商品カタログ", icon: BookOpen },
+      { id: "inventory-procurement" as const, label: "仕入れリスト", icon: Table },
+      { id: "inventory-insights" as const, label: "在庫データ分析", icon: BarChart3 },
+      { id: "inventory-catalog" as const, label: "商品一覧", icon: BookOpen },
       { id: "inventory-planning" as const, label: "在庫計画早見表", icon: BarChart3 },
       { id: "inventory-ai-advice" as const, label: "AIアドバイス", icon: Bot },
-      { id: "inventory-import" as const, label: "データインポート", icon: Upload },
-      { id: "inventory-alerts" as const, label: "在庫アラート", icon: AlertTriangle },
+    ],
+  },
+  {
+    id: "data" as const,
+    label: "データ",
+    sublabel: "登録・編集",
+    icon: Upload,
+    subItems: [
+      { id: "data-main" as const, label: "データ一覧", icon: Table },
+      { id: "data-registration" as const, label: "データ登録", icon: Upload },
     ],
   },
   {
@@ -82,13 +87,12 @@ const navItems = [
     icon: Wallet,
     subItems: [
       { id: "finance-main" as const, label: "キャッシュフロー", icon: TrendingUp },
-      { id: "finance-reserve" as const, label: "内部留保設定", icon: PiggyBank },
       { id: "finance-gantt" as const, label: "ガントチャート", icon: Calendar },
     ],
   },
 ]
 
-export function Sidebar({ activeSection, activeSubSection, onSectionChange }: SidebarProps) {
+export function Sidebar({ activeSection, activeSubSection, onSectionChangeAction }: SidebarProps) {
   const router = useRouter()
   const [expandedSections, setExpandedSections] = useState<MainSection[]>([activeSection])
   const [isHovering, setIsHovering] = useState(false)
@@ -100,11 +104,11 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
   const handleMainClick = (item: (typeof navItems)[0]) => {
     toggleExpand(item.id)
     const defaultSub = item.subItems[0].id
-    onSectionChange(item.id, defaultSub)
+    onSectionChangeAction(item.id, defaultSub)
   }
 
   const handleSubClick = (mainId: MainSection, subId: SubSection) => {
-    onSectionChange(mainId, subId)
+    onSectionChangeAction(mainId, subId)
   }
 
   const handleSettingsNavigation = () => {
@@ -118,7 +122,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
   return (
     <div className="flex flex-col h-screen">
       <aside
-        className="group/sidebar w-[98px] hover:w-[358px] transition-[width] duration-300 ease-in-out bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden relative z-20 shadow-[4px_0_16px_rgba(0,0,0,0.08)] border-r border-sidebar-border"
+        className="group/sidebar w-24.5 hover:w-89.5 transition-[width] duration-300 ease-in-out bg-sidebar text-sidebar-foreground flex flex-col h-full overflow-hidden relative z-20 shadow-[4px_0_16px_rgba(0,0,0,0.08)] border-r border-sidebar-border"
         onMouseEnter={() => {
           setIsHovering(true)
           setExpandedSections([activeSection])
@@ -129,11 +133,11 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
         }}
       >
         <div className="p-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-3 min-h-[52px]">
+          <div className="flex items-center gap-3 min-h-13">
             <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center shrink-0">
               <Shirt className="w-6 h-6 text-white" />
             </div>
-            <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-[160px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75 min-h-[42px]">
+            <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-40 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75 min-h-10.5">
               <h1 className="font-bold text-lg">アパレル管理</h1>
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
@@ -156,13 +160,13 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                     <button
                       onClick={() => handleMainClick(item)}
                       className={cn(
-                        "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors text-left min-h-[52px]",
+                        "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors text-left min-h-13",
                         isActive ? "bg-[#345fe1] text-white" : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5" />
-                        <div className="overflow-hidden w-0 group-hover/sidebar:w-[180px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
+                        <div className="overflow-hidden w-0 group-hover/sidebar:w-45 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                           <p className="font-medium text-sm">{item.label}</p>
                           <p className={cn("text-xs", isActive ? "text-white/70" : "text-sidebar-foreground/50")}>
                             {item.sublabel}
@@ -184,7 +188,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                       <ul
                         className={cn(
                           "mt-1 ml-2 space-y-1 overflow-hidden transition-[max-height] duration-200 delay-100",
-                          isHovering ? "max-h-[600px]" : "max-h-0",
+                          isHovering ? "max-h-150" : "max-h-0",
                         )}
                       >
                         {item.subItems.map((subItem) => {
@@ -195,14 +199,14 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                               <button
                                 onClick={() => handleSubClick(item.id, subItem.id)}
                                 className={cn(
-                                  "w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-left text-sm min-h-[44px]",
+                                  "w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-left text-sm min-h-11",
                                   isSubActive
                                     ? "bg-[#345fe1]/10 text-[#345fe1] font-medium"
                                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent",
                                 )}
                               >
                                 <SubIcon className="w-4 h-4" />
-                                <span className="overflow-hidden w-0 group-hover/sidebar:w-[170px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
+                                <span className="overflow-hidden w-0 group-hover/sidebar:w-42.5 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                                   {subItem.label}
                                 </span>
                               </button>
@@ -230,7 +234,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left"
               >
                 <Settings className="w-5 h-5" />
-                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
+                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-30 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                   設定
                 </span>
               </button>
@@ -238,7 +242,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
             <li>
               <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors text-left">
                 <HelpCircle className="w-5 h-5" />
-                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[120px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
+                <span className="text-sm overflow-hidden w-0 group-hover/sidebar:w-30 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                   ヘルプ
                 </span>
               </button>
@@ -255,7 +259,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
                 alt="ユーザーアバター"
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <div className="text-sm overflow-hidden w-0 group-hover/sidebar:w-[140px] opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
+              <div className="text-sm overflow-hidden w-0 group-hover/sidebar:w-35 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">
                 <p className="font-medium">山田 太郎</p>
                 <p className="text-xs text-sidebar-foreground/50">店長</p>
               </div>
@@ -275,21 +279,7 @@ export function Sidebar({ activeSection, activeSubSection, onSectionChange }: Si
 
 export function Header() {
   return (
-    <header className="h-16 bg-white border-b border-border px-6 flex items-center justify-between">
-      <div className="flex-1 max-w-md">
-        <div className="relative">
-          <Input type="search" placeholder="検索..." className="pl-10 bg-muted/50 border-0" />
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-          </svg>
-        </div>
-      </div>
+    <header className="h-16 bg-white border-b border-border px-6 flex items-center justify-end">
       <div className="flex items-center gap-4">
         <button className="relative p-2 rounded-full hover:bg-muted transition-colors">
           <Bell className="w-5 h-5 text-muted-foreground" />

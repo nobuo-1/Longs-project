@@ -6,11 +6,47 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
  
-const planningData = {
-  2024: [
+type PlanningRow = {
+  month: string
+  purchaseBudget: number
+  purchaseBudgetLastYear: number
+  purchaseBudgetPrediction: number
+  shipmentAmount: number
+  shipmentAmountLastYear: number
+  shipmentAmountPrediction: number
+  shipmentGrossProfitRate: number
+  shipmentGrossProfitRateLastYear: number
+  shipmentGrossProfitRatePrediction: number
+  shipmentCost: number
+  shipmentCostLastYear: number
+  shipmentCostPrediction: number
+  waste: number
+  wasteLastYear: number
+  wastePrediction: number
+  monthEndInventory: number
+  monthEndInventoryLastYear: number
+  monthEndInventoryPrediction: number
+  inventoryPlan: number
+  planDiff: number
+  lastYearInventory: number
+}
+
+type PlanningYear = "2024" | "2023"
+
+type BulkRowKey =
+  | "purchaseBudget"
+  | "shipmentAmount"
+  | "shipmentGrossProfitRate"
+  | "shipmentCost"
+  | "waste"
+  | "monthEndInventory"
+  | "inventoryPlan"
+
+const planningData: Record<PlanningYear, PlanningRow[]> = {
+  "2024": [
     {
       month: "4月",
       purchaseBudget: 3500000,
@@ -300,7 +336,7 @@ const planningData = {
       lastYearInventory: 7900000,
     },
   ],
-  2023: [
+  "2023": [
     {
       month: "4月",
       purchaseBudget: 3200000,
@@ -354,16 +390,10 @@ const planningData = {
 }
 
 export function InventoryPlanning() {
-  const [selectedYear, setSelectedYear] = useState<"2024" | "2023">("2024")
+  const [selectedYear, setSelectedYear] = useState<PlanningYear>("2024")
   const [showComparison, setShowComparison] = useState(true)
-  const [planDraft, setPlanDraft] = useState(planningData)
-  const [planInput, setPlanInput] = useState({
-    month: "2024-12",
-    purchaseBudget: 4200000,
-    shipmentAmount: 5200000,
-    grossProfitRate: 34.5,
-    notes: "冬物と春物の谷間で広告を抑制",
-  })
+  const [planDraft, setPlanDraft] = useState<Record<PlanningYear, PlanningRow[]>>(planningData)
+  const [isBulkPlanOpen, setIsBulkPlanOpen] = useState(false)
 
   const data = planDraft[selectedYear]
 
@@ -373,13 +403,6 @@ export function InventoryPlanning() {
       currency: "JPY",
       maximumFractionDigits: 0,
     }).format(value)
-  }
-
-  const formatCurrencyShort = (value: number) => {
-    if (value >= 1000000) {
-      return `¥${(value / 1000000).toFixed(1)}M`
-    }
-    return `¥${(value / 1000).toFixed(0)}K`
   }
 
   const formatPercent = (value: number) => `${value.toFixed(1)}%`
@@ -395,77 +418,280 @@ export function InventoryPlanning() {
     { purchaseBudget: 0, shipmentAmount: 0, shipmentCost: 0, waste: 0 },
   )
 
+  const totalsLastYear = data.reduce(
+    (acc, item) => ({
+      purchaseBudget: acc.purchaseBudget + item.purchaseBudgetLastYear,
+      shipmentAmount: acc.shipmentAmount + item.shipmentAmountLastYear,
+      shipmentCost: acc.shipmentCost + item.shipmentCostLastYear,
+      waste: acc.waste + item.wasteLastYear,
+    }),
+    { purchaseBudget: 0, shipmentAmount: 0, shipmentCost: 0, waste: 0 },
+  )
+
+  const totalsBudget = data.reduce(
+    (acc, item) => ({
+      purchaseBudget: acc.purchaseBudget + item.purchaseBudgetPrediction,
+      shipmentAmount: acc.shipmentAmount + item.shipmentAmountPrediction,
+      shipmentCost: acc.shipmentCost + item.shipmentCostPrediction,
+      waste: acc.waste + item.wastePrediction,
+    }),
+    { purchaseBudget: 0, shipmentAmount: 0, shipmentCost: 0, waste: 0 },
+  )
+
   const avgGrossProfitRate = data.reduce((acc, item) => acc + item.shipmentGrossProfitRate, 0) / data.length
+  const avgGrossProfitRateLastYear =
+    data.reduce((acc, item) => acc + item.shipmentGrossProfitRateLastYear, 0) / data.length
+  const avgGrossProfitRateBudget =
+    data.reduce((acc, item) => acc + item.shipmentGrossProfitRatePrediction, 0) / data.length
 
   const avgMonthEndInventory = data.reduce((acc, item) => acc + item.monthEndInventory, 0) / data.length
+  const avgMonthEndInventoryLastYear = data.reduce((acc, item) => acc + item.monthEndInventoryLastYear, 0) / data.length
+  const avgMonthEndInventoryBudget = data.reduce((acc, item) => acc + item.monthEndInventoryPrediction, 0) / data.length
   const totalPlanDiff = data.reduce((acc, item) => acc + item.planDiff, 0)
 
-  const renderCellWithComparison = (
-    value: number,
-    lastYear: number,
-    prediction: number,
-    isCurrency = true,
-    isPercent = false,
-  ) => {
-    const format = isPercent ? formatPercent : isCurrency ? formatCurrency : (v: number) => v.toString()
-    const yoy =
-      showComparison && lastYear !== 0 ? ((value - lastYear) / Math.abs(lastYear)) * 100 : showComparison ? 0 : null
+  const calcDiffPercent = (value: number, base: number) => {
+    if (base === 0) return null
+    return ((value - base) / Math.abs(base)) * 100
+  }
+
+  const formatDiffPercent = (value: number | null) => {
+    if (value === null) return "-"
+    return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`
+  }
+
+  const renderComparisonMeta = (value: number, lastYear: number, budget: number) => {
+    if (!showComparison) return null
+    const yoy = calcDiffPercent(value, lastYear)
+    const budgetRatio = calcDiffPercent(value, budget)
     return (
-      <div className="text-right">
-        <div className="font-mono font-medium">{format(value)}</div>
-        {showComparison && (
-          <div className="text-[10px] text-muted-foreground/60 mt-0.5 flex items-center justify-end gap-1">
-            <span className="text-gray-400">昨年比 {lastYear === 0 ? "-" : `${yoy! >= 0 ? "+" : ""}${yoy?.toFixed(1)}%`}</span>
-            <span className="mx-1 text-gray-300">|</span>
-            <span className="text-[#345fe1]/50">予測: {format(prediction)}</span>
-          </div>
-        )}
+      <div className="text-[10px] text-muted-foreground/60 mt-0.5 flex items-center justify-end gap-1">
+        <span className="text-gray-400">昨年比 {formatDiffPercent(yoy)}</span>
+        <span className="mx-1 text-gray-300">|</span>
+        <span className="text-[#345fe1]">予算比 {formatDiffPercent(budgetRatio)}</span>
       </div>
     )
   }
 
+  const renderCellWithComparison = (
+    value: number,
+    lastYear: number,
+    budget: number,
+    isCurrency = true,
+    isPercent = false,
+  ) => {
+    const format = isPercent ? formatPercent : isCurrency ? formatCurrency : (v: number) => v.toString()
+    return (
+      <div className="text-right">
+        <div className="font-mono font-medium">{format(value)}</div>
+        {renderComparisonMeta(value, lastYear, budget)}
+      </div>
+    )
+  }
+
+  const renderTotalCell = (
+    value: number,
+    lastYear: number,
+    budget: number,
+    isCurrency = true,
+    isPercent = false,
+    suffix?: string,
+  ) => {
+    const format = isPercent ? formatPercent : isCurrency ? formatCurrency : (v: number) => v.toString()
+    return (
+      <div className="text-right">
+        <div className="font-mono font-bold">
+          {format(value)}
+          {suffix && <span className="text-xs text-muted-foreground font-normal ml-1">{suffix}</span>}
+        </div>
+        {renderComparisonMeta(value, lastYear, budget)}
+      </div>
+    )
+  }
+
+  type BulkRow = {
+    key: BulkRowKey
+    label: string
+    step?: number
+  }
+
+  const bulkMonths = planDraft[selectedYear].map((row) => row.month)
+  const bulkRows: BulkRow[] = [
+    { key: "purchaseBudget", label: "仕入れ予算" },
+    { key: "shipmentAmount", label: "出荷金額" },
+    { key: "shipmentGrossProfitRate", label: "目標粗利率(%)", step: 0.1 },
+    { key: "shipmentCost", label: "出荷原価" },
+    { key: "waste", label: "廃品" },
+    { key: "monthEndInventory", label: "月末在庫金額" },
+    { key: "inventoryPlan", label: "在庫計画" },
+  ]
+
   return (
     <div className="p-6">
       <div className="mb-6">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory AI</p>
         <h2 className="text-2xl font-bold text-foreground">在庫計画早見表</h2>
         <p className="text-muted-foreground">月次の在庫計画と実績の比較</p>
       </div>
 
-      {/* Year Selector */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4 items-end justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-32">
-                <label className="text-sm font-medium text-muted-foreground mb-1 block">年度</label>
-                <Select value={selectedYear} onValueChange={(v: "2024" | "2023") => setSelectedYear(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2024">2024年度</SelectItem>
-                    <SelectItem value="2023">2023年度</SelectItem>
-                  </SelectContent>
-                </Select>
+      <Dialog open={isBulkPlanOpen} onOpenChange={setIsBulkPlanOpen}>
+        <DialogContent className="max-w-400 w-[80vw] h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{selectedYear}年度 計画一括入力</DialogTitle>
+            <DialogDescription>在庫計画早見表と同じ並びで入力できます。</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto rounded-lg border">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-[#345fe1] text-white">
+                  <th className="text-left py-3 px-4 sticky left-0 z-30 bg-[#345fe1] min-w-40 border-r border-white/20">
+                    項目
+                  </th>
+                  {bulkMonths.map((month) => (
+                    <th key={month} className="text-center py-3 px-3 font-semibold min-w-30">
+                      {month}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bulkRows.map((rowDef, rowIndex) => (
+                  <tr
+                    key={rowDef.key}
+                    className={cn(
+                      "border-b border-border/60",
+                      rowIndex % 2 === 1 && "bg-muted/20",
+                    )}
+                  >
+                    <td className="py-3 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
+                      {rowDef.label}
+                    </td>
+                    {bulkMonths.map((_, idx) => (
+                      <td key={`${rowDef.key}-${idx}`} className="py-2 px-3">
+                        <Input
+                          type="number"
+                          step={rowDef.step ?? 1}
+                          value={planDraft[selectedYear][idx][rowDef.key]}
+                          onChange={(e) =>
+                            setPlanDraft((prev) => {
+                              const next = { ...prev }
+                              next[selectedYear][idx][rowDef.key] = Number(e.target.value)
+                              return next
+                            })
+                          }
+                          className="h-9 text-right"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end pt-3">
+            <Button className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white">保存（ダミー）</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="bg-[#345fe1] text-white">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-white" />
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setSelectedYear(selectedYear === "2024" ? "2023" : "2024")}
-                  className="bg-transparent"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setSelectedYear(selectedYear === "2023" ? "2024" : "2023")}
-                  className="bg-transparent"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+              <div>
+                <p className="text-xs text-white/70">年間仕入れ予算</p>
+                <p className="text-lg font-bold">{formatCurrency(totals.purchaseBudget)}</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-[#345fe1]" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">年間出荷金額</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(totals.shipmentAmount)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 flex items-center justify-center">
+                <Package className="w-5 h-5 text-[#345fe1]" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">平均在庫金額</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(avgMonthEndInventory)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 flex items-center justify-center">
+                {totalPlanDiff >= 0 ? (
+                  <TrendingUp className="w-5 h-5 text-[#345fe1]" />
+                ) : (
+                  <TrendingDown className="w-5 h-5 text-[#345fe1]" />
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">年間計画差</p>
+                <p className={cn("text-lg font-bold", totalPlanDiff >= 0 ? "text-green-600" : "text-red-600")}>
+                  {totalPlanDiff >= 0 ? "+" : ""}
+                  {formatCurrency(totalPlanDiff)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Planning Table - Improved with comparison data */}
+      <Card>
+        <CardHeader className="border-b border-border space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">{selectedYear}年度 在庫計画早見表</CardTitle>
+              <p className="text-sm text-muted-foreground">月次の在庫計画と実績の比較</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSelectedYear(selectedYear === "2024" ? "2023" : "2024")}
+                className="bg-transparent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Select value={selectedYear} onValueChange={(v: "2024" | "2023") => setSelectedYear(v)}>
+              <SelectTrigger className="w-30">
+                <SelectValue />
+              </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2024">2024年度</SelectItem>
+                  <SelectItem value="2023">2023年度</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSelectedYear(selectedYear === "2023" ? "2024" : "2023")}
+                className="bg-transparent"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
               <Button
                 variant={showComparison ? "default" : "outline"}
                 size="sm"
@@ -475,277 +701,40 @@ export function InventoryPlanning() {
                 {showComparison ? "比較表示 ON" : "比較表示 OFF"}
               </Button>
             </div>
-            <Button variant="outline" className="bg-transparent text-[#345fe1] border-[#345fe1]">
-              <Download className="w-4 h-4 mr-2" />
-              エクスポート
-            </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-base">{selectedYear}年度 計画一括入力</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="px-3 py-2 text-left">月</th>
-                <th className="px-3 py-2 text-right">仕入予算</th>
-                <th className="px-3 py-2 text-right">出荷金額</th>
-                <th className="px-3 py-2 text-right">目標粗利率(%)</th>
-                <th className="px-3 py-2 text-right">在庫計画</th>
-              </tr>
-            </thead>
-            <tbody>
-              {planDraft[selectedYear].map((row, idx) => (
-                <tr key={idx} className="border-b border-border/60">
-                  <td className="px-3 py-2 font-medium">{row.month}</td>
-                  <td className="px-3 py-2 text-right">
-                    <Input
-                      type="number"
-                      value={row.purchaseBudget}
-                      onChange={(e) =>
-                        setPlanDraft((prev) => {
-                          const next = { ...prev }
-                          next[selectedYear][idx].purchaseBudget = Number(e.target.value)
-                          return next
-                        })
-                      }
-                      className="h-9 text-right"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Input
-                      type="number"
-                      value={row.shipmentAmount}
-                      onChange={(e) =>
-                        setPlanDraft((prev) => {
-                          const next = { ...prev }
-                          next[selectedYear][idx].shipmentAmount = Number(e.target.value)
-                          return next
-                        })
-                      }
-                      className="h-9 text-right"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={row.shipmentGrossProfitRate}
-                      onChange={(e) =>
-                        setPlanDraft((prev) => {
-                          const next = { ...prev }
-                          next[selectedYear][idx].shipmentGrossProfitRate = Number(e.target.value)
-                          return next
-                        })
-                      }
-                      className="h-9 text-right"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Input
-                      type="number"
-                      value={row.inventoryPlan}
-                      onChange={(e) =>
-                        setPlanDraft((prev) => {
-                          const next = { ...prev }
-                          next[selectedYear][idx].inventoryPlan = Number(e.target.value)
-                          return next
-                        })
-                      }
-                      className="h-9 text-right"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-base">計画入力（ダミー）</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label>対象月</Label>
-            <Input
-              type="month"
-              value={planInput.month}
-              onChange={(e) => setPlanInput((prev) => ({ ...prev, month: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>仕入予算</Label>
-            <Input
-              type="number"
-              value={planInput.purchaseBudget}
-              onChange={(e) => setPlanInput((prev) => ({ ...prev, purchaseBudget: Number(e.target.value) }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>出荷金額</Label>
-            <Input
-              type="number"
-              value={planInput.shipmentAmount}
-              onChange={(e) => setPlanInput((prev) => ({ ...prev, shipmentAmount: Number(e.target.value) }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>目標粗利率(%)</Label>
-            <Input
-              type="number"
-              step="0.1"
-              value={planInput.grossProfitRate}
-              onChange={(e) => setPlanInput((prev) => ({ ...prev, grossProfitRate: Number(e.target.value) }))}
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>メモ</Label>
-            <Input
-              value={planInput.notes}
-              onChange={(e) => setPlanInput((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="例) 冬物重点・広告抑制など"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white" type="button">
-              仮登録
-            </Button>
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() =>
-                setPlanInput({ month: "", purchaseBudget: 0, shipmentAmount: 0, grossProfitRate: 0, notes: "" })
-              }
-            >
-              クリア
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-gradient-to-br from-[#345fe1] to-[#2a4bb3] text-white">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <DollarSign className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-white/70">年間仕入れ予算</p>
-                <p className="text-lg font-bold">{formatCurrencyShort(totals.purchaseBudget)}</p>
-              </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">年度の切り替え・計画登録・ダウンロードをまとめて操作</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" className="bg-transparent text-[#345fe1] border-[#345fe1]">
+                <Download className="w-4 h-4 mr-2" />
+                ダウンロード
+              </Button>
+              <Button className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white" onClick={() => setIsBulkPlanOpen(true)}>
+                計画登録
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">年間出荷金額</p>
-                <p className="text-lg font-bold text-foreground">{formatCurrencyShort(totals.shipmentAmount)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Package className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">平均在庫金額</p>
-                <p className="text-lg font-bold text-foreground">{formatCurrencyShort(avgMonthEndInventory)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center",
-                  totalPlanDiff >= 0 ? "bg-green-100" : "bg-red-100",
-                )}
-              >
-                {totalPlanDiff >= 0 ? (
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                ) : (
-                  <TrendingDown className="w-5 h-5 text-red-600" />
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">年間計画差</p>
-                <p className={cn("text-lg font-bold", totalPlanDiff >= 0 ? "text-green-600" : "text-red-600")}>
-                  {totalPlanDiff >= 0 ? "+" : ""}
-                  {formatCurrencyShort(totalPlanDiff)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {showComparison && (
-        <Card className="mb-4">
-          <CardContent className="py-3">
-            <div className="flex items-center gap-6 text-sm">
-              <span className="font-medium">凡例:</span>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-foreground" />
-                <span>今年実績</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-gray-400" />
-                <span className="text-muted-foreground">昨年実績</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-[#345fe1]/50" />
-                <span className="text-[#345fe1]">AI予測値</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Planning Table - Improved with comparison data */}
-      <Card>
-        <CardHeader className="border-b border-border">
-          <CardTitle className="text-base">{selectedYear}年度 在庫計画早見表</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#345fe1]">
-                  <th className="text-left py-4 px-4 text-white font-semibold sticky left-0 z-10 bg-[#345fe1] min-w-[160px]">
+                  <th className="text-left py-4 px-4 text-white font-semibold sticky left-0 z-30 bg-[#345fe1] min-w-40 border-r border-white/20 shadow-[2px_0_0_rgba(255,255,255,0.18)]">
                     項目
                   </th>
                   {data.map((item) => (
-                    <th key={item.month} className="text-center py-4 px-3 text-white font-semibold min-w-[120px]">
+                    <th key={item.month} className="text-center py-4 px-3 text-white font-semibold min-w-30">
                       {item.month}
                     </th>
                   ))}
-                  <th className="text-center py-4 px-4 bg-[#2a4bb3] text-white font-bold min-w-[140px]">合計/平均</th>
+                  <th className="text-center py-4 px-4 bg-[#2a4bb3] text-white font-bold min-w-35">合計/平均</th>
                 </tr>
               </thead>
               <tbody>
                 {/* Purchase Budget Row */}
                 <tr className="border-b border-border hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-[#345fe1]" />
                       仕入れ予算
@@ -760,14 +749,14 @@ export function InventoryPlanning() {
                       )}
                     </td>
                   ))}
-                  <td className="py-3 px-4 text-right font-bold font-mono bg-muted/50 border-l border-border">
-                    {formatCurrency(totals.purchaseBudget)}
+                  <td className="py-3 px-4 bg-muted/50 border-l border-border">
+                    {renderTotalCell(totals.purchaseBudget, totalsLastYear.purchaseBudget, totalsBudget.purchaseBudget)}
                   </td>
                 </tr>
 
                 {/* Shipment Amount Row */}
                 <tr className="border-b border-border bg-muted/20 hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-muted/20 sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-green-500" />
                       出荷金額
@@ -782,14 +771,14 @@ export function InventoryPlanning() {
                       )}
                     </td>
                   ))}
-                  <td className="py-3 px-4 text-right font-bold font-mono bg-muted/50 border-l border-border">
-                    {formatCurrency(totals.shipmentAmount)}
+                  <td className="py-3 px-4 bg-muted/50 border-l border-border">
+                    {renderTotalCell(totals.shipmentAmount, totalsLastYear.shipmentAmount, totalsBudget.shipmentAmount)}
                   </td>
                 </tr>
 
                 {/* Shipment Gross Profit Rate Row */}
                 <tr className="border-b border-border hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-purple-500" />
                       出荷粗利益率
@@ -810,28 +799,27 @@ export function InventoryPlanning() {
                         >
                           {formatPercent(item.shipmentGrossProfitRate)}
                         </span>
-                        {showComparison && (
-                          <div className="text-[10px] text-muted-foreground/60 mt-1">
-                            <span className="text-gray-400">{formatPercent(item.shipmentGrossProfitRateLastYear)}</span>
-                            <span className="mx-1">|</span>
-                            <span className="text-[#345fe1]/50">
-                              {formatPercent(item.shipmentGrossProfitRatePrediction)}
-                            </span>
-                          </div>
+                        {renderComparisonMeta(
+                          item.shipmentGrossProfitRate,
+                          item.shipmentGrossProfitRateLastYear,
+                          item.shipmentGrossProfitRatePrediction,
                         )}
                       </div>
                     </td>
                   ))}
-                  <td className="py-3 px-4 text-right font-bold font-mono bg-muted/50 border-l border-border">
-                    <span className="px-2 py-1 rounded-full text-xs font-semibold bg-[#345fe1]/10 text-[#345fe1]">
-                      {formatPercent(avgGrossProfitRate)}
-                    </span>
+                  <td className="py-3 px-4 bg-muted/50 border-l border-border">
+                    <div className="text-right">
+                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-[#345fe1]/10 text-[#345fe1]">
+                        {formatPercent(avgGrossProfitRate)}
+                      </span>
+                      {renderComparisonMeta(avgGrossProfitRate, avgGrossProfitRateLastYear, avgGrossProfitRateBudget)}
+                    </div>
                   </td>
                 </tr>
 
                 {/* Shipment Cost Row */}
                 <tr className="border-b border-border bg-muted/20 hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-muted/20 sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-orange-500" />
                       出荷原価
@@ -846,14 +834,14 @@ export function InventoryPlanning() {
                       )}
                     </td>
                   ))}
-                  <td className="py-3 px-4 text-right font-bold font-mono bg-muted/50 border-l border-border">
-                    {formatCurrency(totals.shipmentCost)}
+                  <td className="py-3 px-4 bg-muted/50 border-l border-border">
+                    {renderTotalCell(totals.shipmentCost, totalsLastYear.shipmentCost, totalsBudget.shipmentCost)}
                   </td>
                 </tr>
 
                 {/* Waste Row */}
                 <tr className="border-b border-border hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-red-500" />
                       廃品
@@ -863,24 +851,21 @@ export function InventoryPlanning() {
                     <td key={item.month} className="py-3 px-3">
                       <div className="text-right text-red-600">
                         <div className="font-mono font-medium">{formatCurrency(item.waste)}</div>
-                        {showComparison && (
-                          <div className="text-[10px] text-muted-foreground/60 mt-0.5">
-                            <span className="text-gray-400">{formatCurrency(item.wasteLastYear)}</span>
-                            <span className="mx-1">|</span>
-                            <span className="text-[#345fe1]/50">{formatCurrency(item.wastePrediction)}</span>
-                          </div>
-                        )}
+                        {renderComparisonMeta(item.waste, item.wasteLastYear, item.wastePrediction)}
                       </div>
                     </td>
                   ))}
-                  <td className="py-3 px-4 text-right font-bold font-mono bg-muted/50 border-l border-border text-red-600">
-                    {formatCurrency(totals.waste)}
+                  <td className="py-3 px-4 bg-muted/50 border-l border-border text-red-600">
+                    <div className="text-right">
+                      <div className="font-mono font-bold">{formatCurrency(totals.waste)}</div>
+                      {renderComparisonMeta(totals.waste, totalsLastYear.waste, totalsBudget.waste)}
+                    </div>
                   </td>
                 </tr>
 
                 {/* Month End Inventory Row */}
                 <tr className="border-b border-border bg-muted/20 hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-muted/20 sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-cyan-500" />
                       月末在庫金額
@@ -895,15 +880,21 @@ export function InventoryPlanning() {
                       )}
                     </td>
                   ))}
-                  <td className="py-3 px-4 text-right font-bold font-mono bg-muted/50 border-l border-border">
-                    {formatCurrencyShort(avgMonthEndInventory)}
-                    <span className="text-xs text-muted-foreground font-normal ml-1">(平均)</span>
+                  <td className="py-3 px-4 bg-muted/50 border-l border-border">
+                    {renderTotalCell(
+                      avgMonthEndInventory,
+                      avgMonthEndInventoryLastYear,
+                      avgMonthEndInventoryBudget,
+                      true,
+                      false,
+                      "(平均)",
+                    )}
                   </td>
                 </tr>
 
                 {/* Inventory Plan Row */}
                 <tr className="border-b border-border hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-indigo-500" />
                       在庫計画
@@ -919,7 +910,7 @@ export function InventoryPlanning() {
 
                 {/* Plan Diff Row */}
                 <tr className="border-b border-border bg-muted/20 hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-muted/20 sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-500" />
                       計画差
@@ -938,7 +929,7 @@ export function InventoryPlanning() {
                         )}
                       >
                         {item.planDiff >= 0 ? "+" : ""}
-                        {formatCurrencyShort(item.planDiff)}
+                        {formatCurrency(item.planDiff)}
                       </span>
                     </td>
                   ))}
@@ -950,14 +941,14 @@ export function InventoryPlanning() {
                       )}
                     >
                       {totalPlanDiff >= 0 ? "+" : ""}
-                      {formatCurrencyShort(totalPlanDiff)}
+                      {formatCurrency(totalPlanDiff)}
                     </span>
                   </td>
                 </tr>
 
                 {/* Last Year Inventory Row */}
                 <tr className="hover:bg-[#345fe1]/5 transition-colors">
-                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-10 border-r border-border">
+                  <td className="py-4 px-4 font-medium bg-white sticky left-0 z-20 border-r border-border shadow-[2px_0_0_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-gray-400" />
                       昨年在庫実績

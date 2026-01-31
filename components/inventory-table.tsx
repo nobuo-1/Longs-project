@@ -1,10 +1,11 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Search, Download, BarChart3, Wallet, Building2 } from "lucide-react"
+import { Search, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 type ColumnDef = {
@@ -206,9 +207,17 @@ const dataViews: DataView[] = [
 const formatNumber = (value: number, isPercent = false) =>
   isPercent ? `${value.toFixed(1)}%` : new Intl.NumberFormat("ja-JP").format(value)
 
-export function InventoryTable() {
+type InventoryTableProps = {
+  embedded?: boolean
+}
+
+export function InventoryTable({ embedded = false }: InventoryTableProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeView, setActiveView] = useState<DataView["key"]>("sales")
+  const [selectedDetail, setSelectedDetail] = useState<{
+    viewKey: DataView["key"]
+    row: Record<string, string | number>
+  } | null>(null)
 
   const currentView = dataViews.find((v) => v.key === activeView) || dataViews[0]
 
@@ -223,8 +232,20 @@ export function InventoryTable() {
   const sumByKey = (key: string) =>
     filteredData.reduce((acc, row) => acc + (typeof row[key] === "number" ? (row[key] as number) : 0), 0)
 
+  const formatValue = (value: string | number | undefined, columnKey?: string, columnLabel?: string) => {
+    if (value === undefined || value === null) return "-"
+    if (typeof value !== "number") return value
+    const isPercent = columnLabel?.includes("%")
+    const isCurrency =
+      columnKey &&
+      (columnKey.includes("金額") || columnKey.includes("残高") || columnKey.includes("支払額") || columnKey.includes("入金額"))
+    if (isPercent) return formatNumber(value, true)
+    if (isCurrency) return `¥${formatNumber(value)}`
+    return formatNumber(value)
+  }
+
   return (
-    <div className="p-6 space-y-6">
+    <div className={cn("space-y-6", embedded ? "" : "p-6")}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory AI</p>
@@ -237,45 +258,6 @@ export function InventoryTable() {
           <Download className="w-4 h-4" />
           CSV出力（ダミー）
         </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">売上/粗利カラム</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 flex items-center gap-3">
-            <BarChart3 className="w-10 h-10 text-[#345fe1]" />
-            <div>
-              <p className="font-semibold text-lg">{formatNumber(sumByKey("純売上金額"))} 円</p>
-              <p className="text-xs text-muted-foreground">純売上金額合計 (view: 売上・粗利)</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">仕入/支払カラム</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 flex items-center gap-3">
-            <Wallet className="w-10 h-10 text-[#345fe1]" />
-            <div>
-              <p className="font-semibold text-lg">{formatNumber(sumByKey("支払額"))} 円</p>
-              <p className="text-xs text-muted-foreground">支払額合計 (view: 仕入・支払)</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">請求/入金カラム</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 flex items-center gap-3">
-            <Building2 className="w-10 h-10 text-[#345fe1]" />
-            <div>
-              <p className="font-semibold text-lg">{formatNumber(sumByKey("入金額"))} 円</p>
-              <p className="text-xs text-muted-foreground">入金額合計 (view: 請求・入金)</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <Card>
@@ -291,6 +273,9 @@ export function InventoryTable() {
                 variant={view.key === activeView ? "default" : "outline"}
                 size="sm"
                 onClick={() => setActiveView(view.key)}
+                className={cn(
+                  view.key === activeView && "bg-[#345fe1] text-white hover:bg-[#2a4bb3] border-transparent",
+                )}
               >
                 {view.label}
               </Button>
@@ -307,6 +292,22 @@ export function InventoryTable() {
               className="pl-9"
             />
           </div>
+
+          {currentView.totals && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {currentView.totals.map((total) => (
+                <Card key={total.key} className="bg-muted/40">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">{total.label}</p>
+                    <p className="text-lg font-bold">
+                      {total.prefix}
+                      {formatNumber(sumByKey(total.key))}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           <div className="overflow-x-auto rounded-lg border">
             <table className="min-w-full text-sm">
@@ -330,18 +331,23 @@ export function InventoryTable() {
                   <tr key={idx} className="border-t border-border/70 hover:bg-muted/40">
                     {currentView.columns.map((col) => {
                       const value = row[col.key]
-                      const isPercent = typeof value === "number" && col.label.includes("%")
-                      const isCurrency = typeof value === "number" && !isPercent
+                      const isPrimary = col.key === currentView.columns[0]?.key
                       return (
                         <td
                           key={`${col.key}-${idx}`}
                           className={cn("px-4 py-2.5 whitespace-nowrap", col.align === "right" && "text-right")}
                         >
-                          {typeof value === "number"
-                            ? isPercent
-                              ? formatNumber(value, true)
-                              : `¥${formatNumber(value)}`
-                            : value}
+                          {isPrimary ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDetail({ viewKey: currentView.key, row })}
+                              className="text-left text-[#345fe1] hover:underline font-medium"
+                            >
+                              {formatValue(value, col.key, col.label)}
+                            </button>
+                          ) : (
+                            formatValue(value, col.key, col.label)
+                          )}
                         </td>
                       )
                     })}
@@ -350,24 +356,46 @@ export function InventoryTable() {
               </tbody>
             </table>
           </div>
-
-          {currentView.totals && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {currentView.totals.map((total) => (
-                <Card key={total.key} className="bg-muted/40">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">{total.label}</p>
-                    <p className="text-lg font-bold">
-                      {total.prefix}
-                      {formatNumber(sumByKey(total.key))}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedDetail} onOpenChange={(open: boolean) => !open && setSelectedDetail(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDetail
+                ? formatValue(
+                    selectedDetail.row[dataViews.find((view) => view.key === selectedDetail.viewKey)?.columns[0]?.key ?? ""],
+                  )
+                : "詳細"}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedDetail && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                {dataViews.find((view) => view.key === selectedDetail.viewKey)?.label}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {dataViews
+                  .find((view) => view.key === selectedDetail.viewKey)
+                  ?.columns.map((col) => (
+                    <div key={col.key} className="space-y-1">
+                      <p className="text-xs text-muted-foreground">{col.label}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {formatValue(selectedDetail.row[col.key], col.key, col.label)}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setSelectedDetail(null)}>
+                  閉じる
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

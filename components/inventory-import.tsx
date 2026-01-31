@@ -194,9 +194,9 @@ export function InventoryImport() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Upload className="w-6 h-6 text-[#345fe1]" />
-          データインポート
+          データアップロード
         </h2>
-        <p className="text-muted-foreground">CSVファイルから在庫データをインポート</p>
+        <p className="text-muted-foreground">CSVファイルから在庫データをアップロード</p>
       </div>
 
       {/* Upload Area */}
@@ -244,7 +244,7 @@ export function InventoryImport() {
       {/* Column mapping areas */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-base">取得カラムのインポート先</CardTitle>
+          <CardTitle className="text-base">取得カラムのアップロード先</CardTitle>
           <p className="text-sm text-muted-foreground">
             CSV / Excel / スプレッドシートのカラムを、どのビューにマッピングするかを事前に確認できます。
           </p>
@@ -267,7 +267,7 @@ export function InventoryImport() {
                 ))}
               </div>
               <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-                インポート先: 在庫AI &rarr; データハブ / 計画 / 粗利ビューに反映（ダミー）
+                アップロード先: 在庫AI &rarr; データハブ / 計画 / 粗利ビューに反映（ダミー）
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm">
@@ -316,7 +316,7 @@ export function InventoryImport() {
       {/* Import History */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">インポート履歴</CardTitle>
+          <CardTitle className="text-base">アップロード履歴</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">

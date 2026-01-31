@@ -33,7 +33,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#345fe1]/15 via-white to-white">
+    <div className="min-h-screen bg-linear-to-br from-[#345fe1]/15 via-white to-white">
       <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         <div className="space-y-6">
           <Badge variant="outline" className="bg-white/70">

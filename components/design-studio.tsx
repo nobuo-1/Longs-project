@@ -30,10 +30,13 @@ interface DesignStudioProps {
 }
  
 const colorPalette = [
+  { name: "ホワイト", hex: "#ffffff" },
   { name: "ネイビー", hex: "#1e3a5f" },
   { name: "ロイヤルブルー", hex: "#345fe1" },
+  { name: "ペールブルー", hex: "#bfdbfe" },
   { name: "スカイブルー", hex: "#4a90a4" },
   { name: "ティール", hex: "#2dd4bf" },
+  { name: "ミント", hex: "#a7f3d0" },
   { name: "エメラルド", hex: "#10b981" },
   { name: "フォレスト", hex: "#22c55e" },
   { name: "ライム", hex: "#84cc16" },
@@ -42,15 +45,29 @@ const colorPalette = [
   { name: "コーラル", hex: "#fb7185" },
   { name: "レッド", hex: "#ef4444" },
   { name: "ピンク", hex: "#ec4899" },
+  { name: "ライトピンク", hex: "#fbcfe8" },
   { name: "パープル", hex: "#a855f7" },
   { name: "バイオレット", hex: "#8b5cf6" },
   { name: "インディゴ", hex: "#6366f1" },
+  { name: "アイボリー", hex: "#fff7e6" },
   { name: "ベージュ", hex: "#f5e6d3" },
   { name: "ブラウン", hex: "#92400e" },
+  { name: "ライトグレー", hex: "#e5e7eb" },
   { name: "グレー", hex: "#6b7280" },
   { name: "スレート", hex: "#475569" },
   { name: "ブラック", hex: "#171717" },
 ]
+
+const isLightColor = (hex: string) => {
+  const normalized = hex.replace("#", "")
+  const full = normalized.length === 3 ? normalized.split("").map((c) => c + c).join("") : normalized
+  if (full.length !== 6) return false
+  const r = parseInt(full.slice(0, 2), 16)
+  const g = parseInt(full.slice(2, 4), 16)
+  const b = parseInt(full.slice(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.6
+}
 
 const styles = [
   { id: "modern", name: "モダン", image: "/modern-minimalist-design-style.jpg" },
@@ -98,8 +115,6 @@ const historyDateRanges: { id: HistoryDateRange; label: string }[] = [
 
 const parseHistoryDate = (value: string) => new Date(value.replace(" ", "T"))
 
-const defaultStyleId = "modern"
-const defaultRatioId = "1:1"
 
 const historyData = [
   {
@@ -153,13 +168,12 @@ const historyData = [
 ]
 
 export function DesignStudio({ initialType, showHistory = false }: DesignStudioProps) {
-  const defaultColor = colorPalette[1].hex
-  const [selectedColor, setSelectedColor] = useState(defaultColor)
+  const [selectedColor, setSelectedColor] = useState("")
   const [catchphrase, setCatchphrase] = useState("")
   const [mainText, setMainText] = useState("")
   const [prompt, setPrompt] = useState("")
-  const [selectedStyle, setSelectedStyle] = useState(defaultStyleId)
-  const [selectedRatio, setSelectedRatio] = useState(defaultRatioId)
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null)
+  const [selectedRatio, setSelectedRatio] = useState<string | null>(null)
   const [customRatioWidth, setCustomRatioWidth] = useState("")
   const [customRatioHeight, setCustomRatioHeight] = useState("")
   const [selectedType, setSelectedType] = useState<"pop" | "poster">(initialType || "pop")
@@ -218,13 +232,22 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
   const selectedStyleName =
     historyStyleFilter === "all" ? null : styles.find((style) => style.id === historyStyleFilter)?.name
 
-  const selectedStyleLabel = styles.find((style) => style.id === selectedStyle)?.name ?? "未選択"
+  const selectedStyleLabel = styles.find((style) => style.id === selectedStyle)?.name
+  const normalizedSelectedColor = selectedColor.trim().toLowerCase()
+  const selectedColorName = colorPalette.find((color) => color.hex.toLowerCase() === normalizedSelectedColor)?.name
+  const colorLabel = selectedColorName ?? (selectedColor.trim() ? selectedColor.trim() : undefined)
   const ratioLabel =
     selectedRatio === "custom"
       ? customRatioWidth && customRatioHeight
-        ? `カスタム ${customRatioWidth}:${customRatioHeight}`
+        ? `${customRatioWidth}:${customRatioHeight}`
         : "カスタム"
-      : selectedRatio
+      : selectedRatio ?? undefined
+  const hasStyle = Boolean(selectedStyleLabel)
+  const hasColor = Boolean(colorLabel)
+  const hasRatio = Boolean(selectedRatio)
+  const hasText = Boolean(catchphrase.trim() || mainText.trim())
+  const hasImage = Boolean(uploadedImage)
+  const showSelectionBadges = hasStyle || hasColor || hasRatio || hasText || hasImage
 
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -266,18 +289,19 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
   const isPanelFilled = (panelId: PopPanelId) => {
     switch (panelId) {
       case "style":
-        return selectedStyle !== defaultStyleId
+        return Boolean(selectedStyle)
       case "color":
-        return selectedColor !== defaultColor
+        return Boolean(selectedColor.trim())
       case "text":
         return Boolean(catchphrase.trim() || mainText.trim())
       case "image":
         return Boolean(uploadedImage)
       case "ratio":
+        if (!selectedRatio) return false
         if (selectedRatio === "custom") {
           return Boolean(customRatioWidth && customRatioHeight)
         }
-        return selectedRatio !== defaultRatioId
+        return true
       default:
         return false
     }
@@ -296,7 +320,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
             {styles.map((style) => (
               <button
                 key={style.id}
-                onClick={() => setSelectedStyle(style.id)}
+                onClick={() => setSelectedStyle((prev) => (prev === style.id ? null : style.id))}
                 className={cn(
                   "p-2 rounded-xl border-2 transition-all",
                   selectedStyle === style.id
@@ -318,31 +342,43 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
         return (
           <>
             <div className="grid grid-cols-5 gap-2 mb-3">
-              {colorPalette.map((color) => (
-                <button
-                  key={color.hex}
-                  onClick={() => setSelectedColor(color.hex)}
-                  className={cn(
-                    "w-full aspect-square rounded-lg transition-all hover:scale-105 relative group",
-                    selectedColor === color.hex && "ring-2 ring-[#345fe1] ring-offset-2",
-                  )}
-                  style={{ backgroundColor: color.hex }}
-                  title={color.name}
-                >
-                  {selectedColor === color.hex && (
-                    <Check className="w-4 h-4 text-white absolute inset-0 m-auto drop-shadow" />
-                  )}
-                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
-                    {color.name}
-                  </span>
-                </button>
-              ))}
+              {colorPalette.map((color) => {
+                const labelClass = isLightColor(color.hex) ? "text-slate-900" : "text-white"
+                return (
+                  <button
+                    key={color.hex}
+                    onClick={() => setSelectedColor((prev) => (prev === color.hex ? "" : color.hex))}
+                    className={cn(
+                      "w-full aspect-square rounded-lg transition-all hover:scale-105 relative group",
+                      selectedColor === color.hex && "ring-2 ring-[#345fe1] ring-offset-2",
+                    )}
+                    style={{ backgroundColor: color.hex }}
+                    title={color.name}
+                  >
+                    {selectedColor === color.hex && (
+                      <Check className="w-4 h-4 text-white absolute inset-0 m-auto drop-shadow" />
+                    )}
+                    <span
+                      className={cn(
+                        "absolute inset-x-1 bottom-1 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity",
+                        labelClass,
+                      )}
+                    >
+                      {color.name}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
             <div className="flex items-center gap-2 mt-8">
-              <div className="w-10 h-10 rounded-lg border shadow-sm" style={{ backgroundColor: selectedColor }} />
+              <div
+                className="w-10 h-10 rounded-lg border shadow-sm"
+                style={{ backgroundColor: selectedColor || "transparent" }}
+              />
               <Input
                 value={selectedColor}
                 onChange={(e) => setSelectedColor(e.target.value)}
+                placeholder="カラーコードを入力"
                 className="font-mono text-sm flex-1"
               />
             </div>
@@ -358,7 +394,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                 placeholder="例: 今だけの特別価格！"
                 value={catchphrase}
                 onChange={(e) => setCatchphrase(e.target.value)}
-                className="focus-visible:ring-1 focus-visible:ring-[#345fe1]/40 focus-visible:ring-offset-0"
+                className="focus-visible:ring-0 focus-visible:border-[#345fe1]"
               />
             </div>
             <div>
@@ -368,7 +404,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                 placeholder="例: 春の新作コレクション"
                 value={mainText}
                 onChange={(e) => setMainText(e.target.value)}
-                className="focus-visible:ring-1 focus-visible:ring-[#345fe1]/40 focus-visible:ring-offset-0"
+                className="focus-visible:ring-0 focus-visible:border-[#345fe1]"
               />
             </div>
           </div>
@@ -420,12 +456,12 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                 return (
                   <button
                     key={ratio.id}
-                    onClick={() => setSelectedRatio(ratio.id)}
+                    onClick={() => setSelectedRatio((prev) => (prev === ratio.id ? null : ratio.id))}
                     className={cn(
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors border",
                       isSelected
                         ? "border-[#345fe1] bg-[#345fe1] text-white"
-                        : "border-border bg-muted text-muted-foreground hover:bg-muted/80",
+                        : "border-border/70 bg-muted/40 text-muted-foreground hover:border-[#345fe1]/50 hover:bg-muted/60",
                     )}
                   >
                     <span>{customLabel}</span>
@@ -482,7 +518,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
-        <div className="flex-1 bg-muted rounded-xl flex items-center justify-center min-h-[400px] relative overflow-hidden">
+        <div className="flex-1 bg-muted rounded-xl flex items-center justify-center min-h-100 relative overflow-hidden">
           {isGenerating ? (
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-[#345fe1] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -509,6 +545,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
     return (
       <div className="p-6">
         <div className="mb-6">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Design Studio</p>
           <h2 className="text-2xl font-bold text-foreground">作成履歴</h2>
           <p className="text-muted-foreground">過去に作成したデザインの一覧</p>
         </div>
@@ -637,6 +674,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
   return (
     <div className="p-6">
       <div className="mb-6">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide">Design Studio</p>
         <h2 className="text-2xl font-bold text-foreground">
           {initialType === "pop" ? "POP作成" : initialType === "poster" ? "ポスター作成" : "デザインスタジオ"}
         </h2>
@@ -655,36 +693,44 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
             <Card className="border-none bg-transparent shadow-none">
               <CardContent className="p-0">
                 <div className="rounded-[28px] border border-border bg-card px-5 py-4 shadow-sm">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground">
-                      スタイル: {selectedStyleLabel}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-border"
-                        style={{ backgroundColor: selectedColor }}
-                      />
-                      カラー: {selectedColor}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground">
-                      比率: {ratioLabel}
-                    </span>
-                    {catchphrase.trim() || mainText.trim() ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground">
-                        テキスト: 入力済み
-                      </span>
-                    ) : null}
-                    {uploadedImage ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground">
-                        参照画像: あり
-                      </span>
-                    ) : null}
-                  </div>
+                  {showSelectionBadges ? (
+                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                      {hasStyle && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          スタイル: {selectedStyleLabel}
+                        </span>
+                      )}
+                      {hasColor && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          <span
+                            className="h-2 w-2 rounded-full border border-border"
+                            style={{ backgroundColor: selectedColor || "transparent" }}
+                          />
+                          カラー: {colorLabel}
+                        </span>
+                      )}
+                      {hasRatio && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          比率: {ratioLabel}
+                        </span>
+                      )}
+                      {hasText ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          テキスト: 入力済み
+                        </span>
+                      ) : null}
+                      {hasImage ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          参照画像: あり
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <Textarea
                     placeholder="指示文を入力してください。例: 春らしい明るい雰囲気で、花柄のパターンを背景に配置し、セール情報を目立たせてください。"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="min-h-[110px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0"
+                    className="min-h-27.5 resize-none border-0 bg-transparent p-0 focus-visible:ring-0"
                   />
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -784,31 +830,43 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-5 gap-2 mb-3">
-                  {colorPalette.map((color) => (
-                    <button
-                      key={color.hex}
-                      onClick={() => setSelectedColor(color.hex)}
-                      className={cn(
-                        "w-full aspect-square rounded-lg transition-all hover:scale-105 relative group",
-                        selectedColor === color.hex && "ring-2 ring-[#345fe1] ring-offset-2",
-                      )}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
-                    >
-                      {selectedColor === color.hex && (
-                        <Check className="w-4 h-4 text-white absolute inset-0 m-auto drop-shadow" />
-                      )}
-                      <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
-                        {color.name}
-                      </span>
-                    </button>
-                  ))}
+                  {colorPalette.map((color) => {
+                    const labelClass = isLightColor(color.hex) ? "text-slate-900" : "text-white"
+                    return (
+                      <button
+                        key={color.hex}
+                        onClick={() => setSelectedColor((prev) => (prev === color.hex ? "" : color.hex))}
+                        className={cn(
+                          "w-full aspect-square rounded-lg transition-all hover:scale-105 relative group",
+                          selectedColor === color.hex && "ring-2 ring-[#345fe1] ring-offset-2",
+                        )}
+                        style={{ backgroundColor: color.hex }}
+                        title={color.name}
+                      >
+                        {selectedColor === color.hex && (
+                          <Check className="w-4 h-4 text-white absolute inset-0 m-auto drop-shadow" />
+                        )}
+                        <span
+                          className={cn(
+                            "absolute inset-x-1 bottom-1 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity",
+                            labelClass,
+                          )}
+                        >
+                          {color.name}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
                 <div className="flex items-center gap-2 mt-8">
-                  <div className="w-10 h-10 rounded-lg border shadow-sm" style={{ backgroundColor: selectedColor }} />
+                  <div
+                    className="w-10 h-10 rounded-lg border shadow-sm"
+                    style={{ backgroundColor: selectedColor || "transparent" }}
+                  />
                   <Input
                     value={selectedColor}
                     onChange={(e) => setSelectedColor(e.target.value)}
+                    placeholder="カラーコードを入力"
                     className="font-mono text-sm flex-1"
                   />
                 </div>
@@ -828,6 +886,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                     placeholder="例: 今だけの特別価格！"
                     value={catchphrase}
                     onChange={(e) => setCatchphrase(e.target.value)}
+                    className="focus-visible:ring-0 focus-visible:border-[#345fe1]"
                   />
                 </div>
                 <div>
@@ -837,6 +896,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                     placeholder="例: 春の新作コレクション"
                     value={mainText}
                     onChange={(e) => setMainText(e.target.value)}
+                    className="focus-visible:ring-0 focus-visible:border-[#345fe1]"
                   />
                 </div>
               </CardContent>
@@ -897,7 +957,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                   {styles.map((style) => (
                     <button
                       key={style.id}
-                      onClick={() => setSelectedStyle(style.id)}
+                      onClick={() => setSelectedStyle((prev) => (prev === style.id ? null : style.id))}
                       className={cn(
                         "p-2 rounded-xl border-2 transition-all",
                         selectedStyle === style.id
@@ -927,7 +987,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                   {aspectRatios.map((ratio) => (
                     <button
                       key={ratio.id}
-                      onClick={() => setSelectedRatio(ratio.id)}
+                      onClick={() => setSelectedRatio((prev) => (prev === ratio.id ? null : ratio.id))}
                       className={cn(
                         "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                         selectedRatio === ratio.id
@@ -952,7 +1012,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                   placeholder="デザインの詳細な指示を入力してください。例: 春らしい明るい雰囲気で、花柄のパターンを背景に配置し、セール情報を目立たせてください。"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-[120px] resize-none"
+                  className="min-h-30 resize-none"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   詳細な指示を入力することで、より希望に近いデザインが生成されます。

@@ -277,7 +277,7 @@ export function InventoryAlerts() {
               >
                 <div
                   className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
                     alert.severity === "critical"
                       ? "bg-red-100"
                       : alert.severity === "warning"
@@ -327,7 +327,7 @@ export function InventoryAlerts() {
                   </div>
                 </div>
 
-                <div className="text-right flex-shrink-0">
+                <div className="text-right shrink-0">
                   <p className="text-sm text-muted-foreground">現在庫</p>
                   <p
                     className={cn("text-xl font-bold", alert.type === "low_stock" ? "text-red-600" : "text-foreground")}
@@ -340,7 +340,7 @@ export function InventoryAlerts() {
                 <Button
                   size="sm"
                   className={cn(
-                    "flex-shrink-0",
+                    "shrink-0",
                     alert.type === "low_stock"
                       ? "bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
                       : "bg-orange-500 hover:bg-orange-600 text-white",

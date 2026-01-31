@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react"
 import {
   Wallet,
-  ArrowUpCircle,
-  ArrowDownCircle,
   Calendar,
   ChevronLeft,
   ChevronRight,
   Settings,
   Smartphone,
+  BarChart3,
+  Building2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
-import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -26,10 +25,35 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { InventoryTable } from "@/components/inventory-table"
 
 interface FinanceFlowProps {
   initialTab?: "overview" | "reserve" | "gantt"
 }
+
+const inventoryColumnSummaries = [
+  {
+    id: "sales",
+    title: "今期 売上/粗利カラム",
+    value: 6170000,
+    description: "今期の純売上金額合計 (view: 売上・粗利)",
+    icon: BarChart3,
+  },
+  {
+    id: "payables",
+    title: "今期 仕入/支払カラム",
+    value: 3720000,
+    description: "今期の支払額合計 (view: 仕入・支払)",
+    icon: Wallet,
+  },
+  {
+    id: "receivables",
+    title: "今期 請求/入金カラム",
+    value: 7850000,
+    description: "今期の入金額合計 (view: 請求・入金)",
+    icon: Building2,
+  },
+]
 
 type FlowType = "income" | "expense"
 
@@ -424,10 +448,6 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     return summary
   }, [monthlyEvents])
 
-  const monthlyMaxAmount = monthlyEvents.length
-    ? Math.max(...monthlyEvents.map((item) => Math.abs(item.amount)))
-    : 1
-
   const getPageTitle = () => {
     switch (initialTab) {
       case "reserve":
@@ -490,7 +510,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+          <div className="h-75">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -531,7 +551,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+          <div className="h-75">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -577,83 +597,35 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
               <Calendar className="w-5 h-5" />
               当月キャッシュイン/アウトの流れ
             </CardTitle>
-            <Badge variant="outline" className="bg-muted/40">
-              {monthName}
-            </Badge>
+            <span className="text-xs text-muted-foreground">{monthName}</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            当月の入金・支払い・固定費をサイト付きでざっくり確認。詳細はガントチャートタブで展開できます。
+            当月の入金・支払い・固定費・差引をひと目で把握できます。
           </p>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground w-24">日付</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground w-32">サイト</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">内容</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground w-24">カテゴリ</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground w-32">金額</th>
-                  <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-64">タイムライン</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlyEventsSorted.slice(0, 8).map((item) => (
-                  <tr key={item.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer">
-                    <td className="py-3 px-4 text-sm text-muted-foreground">
-                      {item.dueDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge variant="outline" className="bg-white">
-                        {item.cycle}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        {item.type === "income" ? <ArrowUpCircle className="w-4 h-4 text-[#345fe1]" /> : <ArrowDownCircle className="w-4 h-4 text-red-500" />}
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{item.partner}</p>
-                          <p className="text-xs text-muted-foreground">{item.description}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">
-                        {item.isFixed ? "固定費" : item.category}
-                      </span>
-                    </td>
-                    <td
-                      className={cn(
-                        "py-3 px-4 text-right text-sm font-medium",
-                        item.type === "income" ? "text-[#345fe1]" : item.isFixed ? "text-amber-700" : "text-red-600",
-                      )}
-                    >
-                      {item.type === "income" ? "+" : "-"}
-                      {formatCurrency(item.amount)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center h-6">
-                        <div className="w-full bg-muted rounded-full h-2 relative">
-                          <div
-                            className={cn(
-                              "h-2 rounded-full",
-                              item.type === "income" ? "bg-[#345fe1]" : item.isFixed ? "bg-amber-500" : "bg-red-500",
-                            )}
-                            style={{
-                              width: `${(Math.abs(item.amount) / monthlyMaxAmount) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-[#345fe1]/30 bg-[#345fe1]/10 p-4">
+              <p className="text-xs text-muted-foreground">当月入金</p>
+              <p className="text-xl font-bold text-[#345fe1]">{formatCurrency(monthlyTotals.income)}</p>
+            </div>
+            <div className="rounded-xl border border-border p-4">
+              <p className="text-xs text-muted-foreground">当月支払い</p>
+              <p className="text-xl font-bold text-red-500">{formatCurrency(monthlyTotals.expense)}</p>
+            </div>
+            <div className="rounded-xl border border-border p-4">
+              <p className="text-xs text-muted-foreground">固定費（PL）</p>
+              <p className="text-xl font-bold text-amber-600">{formatCurrency(monthlyTotals.fixed)}</p>
+            </div>
+            <div className="rounded-xl border border-[#345fe1]/30 bg-linear-to-br from-[#345fe1] to-[#2a4bb3] p-4 text-white">
+              <p className="text-xs text-white/80">当月差引</p>
+              <p className="text-xl font-bold">{formatCurrency(monthlyTotals.income - monthlyTotals.expense)}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      <InventoryTable embedded />
     </div>
   )
 
@@ -771,6 +743,52 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
       </div>
     )
 
+    const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
+    const checkpoints = [1, 5, 15, 20, 25, lastDayOfMonth]
+      .filter((day, index, array) => array.indexOf(day) === index)
+      .map((day, index, array) => ({
+        day,
+        label: index === array.length - 1 ? "月末" : `${day}日`,
+      }))
+
+    const checkpointTotals = checkpoints.map(({ day }) =>
+      monthlyEvents.reduce((sum, event) => {
+        if (event.dueDate.getDate() <= day) {
+          return sum + (event.type === "income" ? event.amount : -event.amount)
+        }
+        return sum
+      }, 0),
+    )
+
+    const checkpointRows = checkpoints.map((checkpoint, index) => ({
+      ...checkpoint,
+      total: checkpointTotals[index],
+    }))
+
+    const monthlyRows = (() => {
+      if (monthlyEventsSorted.length === 0) {
+        return checkpointRows.map((checkpoint) => ({ type: "checkpoint" as const, checkpoint }))
+      }
+      const rows: Array<
+        | { type: "event"; event: FinanceEvent }
+        | { type: "checkpoint"; checkpoint: (typeof checkpointRows)[number] }
+      > = []
+      let checkpointIndex = 0
+      monthlyEventsSorted.forEach((event) => {
+        const day = event.dueDate.getDate()
+        while (checkpointIndex < checkpointRows.length && day > checkpointRows[checkpointIndex].day) {
+          rows.push({ type: "checkpoint", checkpoint: checkpointRows[checkpointIndex] })
+          checkpointIndex += 1
+        }
+        rows.push({ type: "event", event })
+      })
+      while (checkpointIndex < checkpointRows.length) {
+        rows.push({ type: "checkpoint", checkpoint: checkpointRows[checkpointIndex] })
+        checkpointIndex += 1
+      }
+      return rows
+    })()
+
     const renderMonthly = () => (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -778,18 +796,15 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             <Button variant="outline" size="icon" onClick={prevMonth} className="bg-transparent">
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span className="font-semibold text-sm min-w-[120px] text-center">{monthName}</span>
+            <span className="font-semibold text-sm min-w-30 text-center">{monthName}</span>
             <Button variant="outline" size="icon" onClick={nextMonth} className="bg-transparent">
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <Badge variant="outline" className="bg-muted/40">
-              サイト {Object.keys(cycleSummary).length} パターン
-            </Badge>
-            <Badge variant="outline" className="bg-muted/40">
-              取引 {monthlyEvents.length} 件
-            </Badge>
+          <div className="text-xs text-muted-foreground">
+            <span>サイト {Object.keys(cycleSummary).length} パターン</span>
+            <span className="mx-2">・</span>
+            <span>取引 {monthlyEvents.length} 件</span>
           </div>
         </div>
 
@@ -812,22 +827,12 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
               <p className="text-xl font-bold text-amber-600">{formatCurrency(monthlyTotals.fixed)}</p>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-[#345fe1] to-[#2a4bb3] text-white">
+          <Card className="bg-linear-to-br from-[#345fe1] to-[#2a4bb3] text-white">
             <CardContent className="pt-4">
               <p className="text-xs text-white/80">当月差引</p>
               <p className="text-xl font-bold">{formatCurrency(monthlyTotals.income - monthlyTotals.expense)}</p>
             </CardContent>
           </Card>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(cycleSummary).map(([cycle, value]) => (
-            <Badge key={cycle} variant="outline" className="bg-muted/40">
-              <span className="text-xs">{cycle}</span>
-              <span className="text-[#345fe1] font-semibold">+{formatCurrency(value.income)}</span>
-              <span className="text-red-500 font-semibold">-{formatCurrency(value.expense)}</span>
-            </Badge>
-          ))}
         </div>
 
         <div className="overflow-x-auto rounded-xl border">
@@ -839,70 +844,78 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">取引先 / 内容</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground w-24">種別</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground w-32">金額</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground w-64">タイムライン</th>
               </tr>
             </thead>
             <tbody>
-              {monthlyEventsSorted.map((event) => (
-                <tr
-                  key={event.id}
-                  className="border-t border-border/70 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => setSelectedEvent(event)}
-                >
-                  <td className="py-3 px-4 text-muted-foreground">
-                    {event.dueDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
-                  </td>
-                  <td className="py-3 px-4">
-                    <Badge variant="outline" className="bg-white">
-                      {event.cycle}
-                    </Badge>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-foreground">{event.partner}</span>
-                      <span className="text-xs text-muted-foreground">{event.description}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span
+              {monthlyRows.map((row, index) =>
+                row.type === "checkpoint" ? (
+                  <tr
+                    key={`checkpoint-${row.checkpoint.label}-${index}`}
+                    className="bg-[#345fe1]/5 border-t border-[#345fe1]/20"
+                  >
+                    <td colSpan={5} className="py-2 px-4 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">{row.checkpoint.label} 時点収支</span>
+                        <span
+                          className={cn(
+                            "font-semibold",
+                            row.checkpoint.total >= 0 ? "text-[#345fe1]" : "text-red-600",
+                          )}
+                        >
+                          {row.checkpoint.total >= 0 ? "+" : "-"}
+                          {formatCurrency(Math.abs(row.checkpoint.total))}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr
+                    key={row.event.id}
+                    className="border-t border-border/70 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => setSelectedEvent(row.event)}
+                  >
+                    <td className="py-3 px-4 text-muted-foreground">
+                      {row.event.dueDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-xs font-medium text-foreground">{row.event.cycle}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium text-foreground">{row.event.partner}</span>
+                        <span className="text-xs text-muted-foreground">{row.event.description}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          row.event.type === "income"
+                            ? "text-[#345fe1]"
+                            : row.event.isFixed
+                              ? "text-amber-700"
+                              : "text-red-600",
+                        )}
+                      >
+                        {row.event.type === "income" ? "入金" : row.event.isFixed ? "固定費" : "支払い"}
+                      </span>
+                    </td>
+                    <td
                       className={cn(
-                        "text-xs px-2 py-1 rounded-full",
-                        event.type === "income"
-                          ? "bg-[#345fe1]/10 text-[#345fe1]"
-                          : event.isFixed
-                            ? "bg-amber-500/20 text-amber-700"
-                            : "bg-red-500/10 text-red-600",
+                        "py-3 px-4 text-right font-semibold",
+                        row.event.type === "income"
+                          ? "text-[#345fe1]"
+                          : row.event.isFixed
+                            ? "text-amber-700"
+                            : "text-red-600",
                       )}
                     >
-                      {event.type === "income" ? "入金" : event.isFixed ? "固定費" : "支払い"}
-                    </span>
-                  </td>
-                  <td
-                    className={cn(
-                      "py-3 px-4 text-right font-semibold",
-                      event.type === "income" ? "text-[#345fe1]" : event.isFixed ? "text-amber-700" : "text-red-600",
-                    )}
-                  >
-                    {event.type === "income" ? "+" : "-"}
-                    {formatCurrency(event.amount)}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center h-6">
-                      <div className="w-full bg-muted rounded-full h-2 relative">
-                        <div
-                          className={cn(
-                            "h-2 rounded-full",
-                            event.type === "income" ? "bg-[#345fe1]" : event.isFixed ? "bg-amber-500" : "bg-red-500",
-                          )}
-                          style={{
-                            width: `${(Math.abs(event.amount) / monthlyMaxAmount) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      {row.event.type === "income" ? "+" : "-"}
+                      {formatCurrency(row.event.amount)}
+                    </td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
         </div>
@@ -918,18 +931,15 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             <Button variant="outline" size="icon" onClick={() => changeYear(-1)} className="bg-transparent">
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span className="font-semibold text-sm min-w-[120px] text-center">{yearLabel}</span>
+            <span className="font-semibold text-sm min-w-30 text-center">{yearLabel}</span>
             <Button variant="outline" size="icon" onClick={() => changeYear(1)} className="bg-transparent">
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <Badge variant="outline" className="bg-muted/40">
-              主要取引先 {recurringSchedules.length} 件
-            </Badge>
-            <Badge variant="outline" className="bg-muted/40">
-              固定費 {fixedCosts.length} 件
-            </Badge>
+          <div className="text-xs text-muted-foreground">
+            <span>主要取引先 {recurringSchedules.length} 件</span>
+            <span className="mx-2">・</span>
+            <span>固定費 {fixedCosts.length} 件</span>
           </div>
         </div>
 
@@ -952,7 +962,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
               <p className="text-xl font-bold text-amber-600">{formatCurrency(yearlyTotals.fixed)}</p>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-[#345fe1] to-[#2a4bb3] text-white">
+          <Card className="bg-linear-to-br from-[#345fe1] to-[#2a4bb3] text-white">
             <CardContent className="pt-4">
               <p className="text-xs text-white/80">年間差引</p>
               <p className="text-xl font-bold">{formatCurrency(yearlyTotals.income - yearlyTotals.expense)}</p>
@@ -986,9 +996,11 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
         </div>
 
         <div className="overflow-x-auto rounded-xl border">
-          <div className="min-w-[1080px]">
-            <div className="grid grid-cols-[200px_repeat(12,minmax(70px,1fr))] bg-muted/50 text-xs font-medium">
-              <div className="p-3 text-left">取引先 / サイト</div>
+          <div className="min-w-350">
+            <div className="grid grid-cols-[220px_repeat(12,minmax(80px,1fr))] bg-muted/50 text-xs font-medium">
+              <div className="p-3 text-left sticky left-0 z-20 bg-muted/80 border-r border-border">
+                取引先 / サイト
+              </div>
               {Array.from({ length: 12 }, (_, i) => (
                 <div key={i} className="p-3 text-center">
                   {i + 1}月
@@ -999,9 +1011,9 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             {yearlyRows.map((row) => (
               <div
                 key={row.id}
-                className="grid grid-cols-[200px_repeat(12,minmax(70px,1fr))] border-t border-border/70"
+                className="grid grid-cols-[220px_repeat(12,minmax(80px,1fr))] border-t border-border/70"
               >
-                <div className="p-3 space-y-1">
+                <div className="p-3 space-y-1 sticky left-0 z-10 bg-white border-r border-border">
                   <div className="text-sm font-semibold text-foreground">{row.partner}</div>
                   <div className="text-xs text-muted-foreground">{row.cycle}</div>
                   <div className="text-xs text-muted-foreground">{row.description}</div>
@@ -1016,7 +1028,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                       onClick={() => event && setSelectedEvent(event)}
                       disabled={!event}
                       className={cn(
-                        "min-h-[64px] p-1.5 text-left border-l border-border/40 hover:bg-muted/40 transition-colors",
+                        "min-h-16 p-1.5 text-left border-l border-border/40 hover:bg-muted/40 transition-colors",
                         !event && "bg-muted/20 text-muted-foreground cursor-default",
                       )}
                     >
@@ -1069,14 +1081,27 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 ガントチャート（振込・支払いサイト）
               </CardTitle>
               <div className="flex gap-2">
-                <Button variant={ganttMode === "monthly" ? "default" : "outline"} onClick={() => setGanttMode("monthly")}>
+                <Button
+                  variant="outline"
+                  onClick={() => setGanttMode("monthly")}
+                  className={cn(
+                    ganttMode === "monthly"
+                      ? "bg-[#345fe1] text-white border-[#345fe1]"
+                      : "bg-white text-muted-foreground",
+                  )}
+                >
                   月次
                 </Button>
-                <Button variant={ganttMode === "yearly" ? "default" : "outline"} onClick={() => setGanttMode("yearly")}>
+                <Button
+                  variant="outline"
+                  onClick={() => setGanttMode("yearly")}
+                  className={cn(
+                    ganttMode === "yearly"
+                      ? "bg-[#345fe1] text-white border-[#345fe1]"
+                      : "bg-white text-muted-foreground",
+                  )}
+                >
                   年間
-                </Button>
-                <Button variant="outline" onClick={() => setShowSalesModal(true)}>
-                  売上登録
                 </Button>
               </div>
             </div>
@@ -1140,13 +1165,9 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                   <p className="text-muted-foreground text-xs">メモ</p>
                   <p className="font-medium text-foreground">{selectedEvent.description}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {(selectedEvent.tags || []).map((tag) => (
-                    <Badge key={tag} variant="outline" className="bg-muted/40">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
+                {selectedEvent.tags?.length ? (
+                  <div className="text-xs text-muted-foreground">{selectedEvent.tags.join(" ・ ")}</div>
+                ) : null}
               </div>
             )}
           </DialogContent>
@@ -1204,6 +1225,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
   return (
     <div className="p-6">
       <div className="mb-6">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide">Finance Flow</p>
         <h2 className="text-2xl font-bold text-foreground">{getPageTitle()}</h2>
         <p className="text-muted-foreground">{getPageDescription()}</p>
       </div>
@@ -1214,7 +1236,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#345fe1]/10 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 flex items-center justify-center">
                   <Wallet className="w-6 h-6 text-[#345fe1]" />
                 </div>
                 <div>
@@ -1228,7 +1250,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#345fe1]/10 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 flex items-center justify-center">
                   <Settings className="w-6 h-6 text-[#345fe1]" />
                 </div>
                 <div>
@@ -1240,11 +1262,11 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-[#345fe1] to-[#2a4bb3] text-white">
+          <Card className="bg-linear-to-br from-[#345fe1] to-[#2a4bb3] text-white">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Wallet className="w-6 h-6" />
+                <div className="w-12 h-12 flex items-center justify-center">
+                  <Wallet className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <p className="text-sm text-white/70">可処分予算</p>
@@ -1253,6 +1275,28 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {initialTab === "overview" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {inventoryColumnSummaries.map((summary) => {
+            const Icon = summary.icon
+            return (
+              <Card key={summary.id}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground">{summary.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 flex items-center gap-3">
+                  <Icon className="w-10 h-10 text-[#345fe1]" />
+                  <div>
+                    <p className="font-semibold text-lg">{formatCurrency(summary.value)}</p>
+                    <p className="text-xs text-muted-foreground">{summary.description}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
 
