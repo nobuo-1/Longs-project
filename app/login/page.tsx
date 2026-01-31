@@ -63,18 +63,6 @@ export default function LoginPage() {
               )
             })}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/">
-              <Button variant="outline" className="gap-2">
-                ダッシュボードを見る <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
-            <Link href="/settings">
-              <Button variant="ghost" className="gap-2">
-                設定ページへ <CalendarClock className="w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
         </div>
 
         <Card className="backdrop-blur bg-white/90 shadow-xl border border-border/80">
@@ -97,6 +85,7 @@ export default function LoginPage() {
                   <Switch
                     checked={rememberMe}
                     onCheckedChange={(checked: boolean) => setRememberMe(Boolean(checked))}
+                    className="data-[state=checked]:bg-[#345fe1]"
                   />
                   <span className="text-sm text-muted-foreground">次回から自動ログイン</span>
                 </div>
@@ -105,12 +94,13 @@ export default function LoginPage() {
                 </Link>
               </div>
               <div className="space-y-2">
-                <Button type="submit" className="w-full gap-2" disabled={loading}>
-                  {loading ? "ログイン中..." : "ログインしてダッシュボードへ"}
+                <Button
+                  type="submit"
+                  className="w-full gap-2 bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                  disabled={loading}
+                >
+                  {loading ? "ログイン中..." : "ログイン"}
                   <ArrowRight className="w-4 h-4" />
-                </Button>
-                <Button type="button" variant="secondary" className="w-full" onClick={() => router.push("/")}>
-                  ゲストとして入る
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
