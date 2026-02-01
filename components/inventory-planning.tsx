@@ -547,7 +547,7 @@ export function InventoryPlanning() {
                     項目
                   </th>
                   {bulkMonths.map((month) => (
-                    <th key={month} className="text-center py-3 px-3 font-semibold min-w-30">
+                    <th key={month} className="text-center py-3 px-3 font-semibold min-w-[9rem]">
                       {month}
                     </th>
                   ))}
@@ -566,7 +566,7 @@ export function InventoryPlanning() {
                       {rowDef.label}
                     </td>
                     {bulkMonths.map((_, idx) => (
-                      <td key={`${rowDef.key}-${idx}`} className="py-2 px-3">
+                      <td key={`${rowDef.key}-${idx}`} className="py-2 px-3 min-w-[9rem]">
                         <Input
                           type="number"
                           step={rowDef.step ?? 1}
@@ -578,7 +578,7 @@ export function InventoryPlanning() {
                               return next
                             })
                           }
-                          className="h-9 text-right"
+                          className="h-9 text-right tabular-nums w-[9rem] min-w-[9rem]"
                         />
                       </td>
                     ))}

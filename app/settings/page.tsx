@@ -348,6 +348,7 @@ export default function SettingsPage() {
                           }
                           max={40}
                           step={1}
+                          className="[&_[data-slot=slider-track]]:bg-[#345fe1]/15 [&_[data-slot=slider-range]]:bg-[#345fe1] [&_[data-slot=slider-thumb]]:border-[#345fe1] [&_[data-slot=slider-thumb]]:focus-visible:ring-[#345fe1]/30 [&_[data-slot=slider-thumb]]:hover:ring-[#345fe1]/20"
                         />
                       )}
                     </div>

@@ -656,7 +656,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                   onValueChange={(value: number[]) => updateReserveSetting(cat.id, value[0])}
                   max={30}
                   step={1}
-                  className="flex-1"
+                  className="flex-1 [&_[data-slot=slider-track]]:bg-[#345fe1]/15 [&_[data-slot=slider-range]]:bg-[#345fe1] [&_[data-slot=slider-thumb]]:border-[#345fe1] [&_[data-slot=slider-thumb]]:focus-visible:ring-[#345fe1]/30 [&_[data-slot=slider-thumb]]:hover:ring-[#345fe1]/20"
                 />
                 <Input
                   type="number"
