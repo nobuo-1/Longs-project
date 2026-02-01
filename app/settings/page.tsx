@@ -6,6 +6,7 @@ import { Calendar, Settings2, Wallet, Plus, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
 import { Header, Sidebar, type MainSection, type SubSection } from "@/components/sidebar"
 
 const categoryDefaults = [
@@ -22,6 +23,13 @@ const fixedCostDefaults = [
   { id: "saas", name: "SaaS / システム", amount: 180000, day: 15 },
 ]
 
+const reserveDefaults = [
+  { id: "emergency", name: "緊急準備金", description: "不測の事態への備え", percent: 10 },
+  { id: "seasonal", name: "季節仕入れ", description: "シーズン商品の仕入れ資金", percent: 15 },
+  { id: "equipment", name: "設備更新", description: "店舗設備の更新・修繕", percent: 5 },
+  { id: "expansion", name: "事業拡大", description: "新店舗・新事業への投資", percent: 10 },
+]
+
 export default function SettingsPage() {
   const router = useRouter()
   const [activeSection, setActiveSection] = useState<MainSection>("design")
@@ -32,6 +40,9 @@ export default function SettingsPage() {
   const [fixedCosts, setFixedCosts] = useState(fixedCostDefaults)
   const [fixedCostsDraft, setFixedCostsDraft] = useState(fixedCostDefaults)
   const [isFixedEditing, setIsFixedEditing] = useState(false)
+  const [reserveSettings, setReserveSettings] = useState(reserveDefaults)
+  const [reserveDraft, setReserveDraft] = useState(reserveDefaults)
+  const [isReserveEditing, setIsReserveEditing] = useState(false)
 
   const handleSectionChange = (section: MainSection, subSection: SubSection) => {
     setActiveSection(section)
@@ -75,6 +86,24 @@ export default function SettingsPage() {
       { id: `new-${Date.now()}`, name: "新規項目", amount: 0, day: 25 },
     ])
   }
+
+  const handleReserveEdit = () => {
+    setReserveDraft(reserveSettings.map((item) => ({ ...item })))
+    setIsReserveEditing(true)
+  }
+
+  const handleReserveSave = () => {
+    setReserveSettings(reserveDraft.map((item) => ({ ...item })))
+    setIsReserveEditing(false)
+  }
+
+  const handleReserveCancel = () => {
+    setReserveDraft(reserveSettings.map((item) => ({ ...item })))
+    setIsReserveEditing(false)
+  }
+
+  const reserveView = isReserveEditing ? reserveDraft : reserveSettings
+  const reserveTotal = reserveView.reduce((sum, item) => sum + item.percent, 0)
 
   return (
     <div className="flex h-screen bg-background">
@@ -250,6 +279,93 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings2 className="w-5 h-5 text-[#345fe1]" />
+                    内部留保の設定
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    {isReserveEditing ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={handleReserveCancel}>
+                          キャンセル
+                        </Button>
+                        <Button size="sm" className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white" onClick={handleReserveSave}>
+                          保存
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={handleReserveEdit}>
+                        編集
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {reserveView.map((item, index) => (
+                    <div key={item.id} className="p-4 border border-border rounded-lg space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        </div>
+                        {isReserveEditing ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={40}
+                              value={reserveDraft[index].percent}
+                              onChange={(e) =>
+                                setReserveDraft((prev) =>
+                                  prev.map((row, idx) =>
+                                    idx === index ? { ...row, percent: Number(e.target.value) } : row,
+                                  ),
+                                )
+                              }
+                              className="w-20 text-right"
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
+                        ) : (
+                          <p className="text-lg font-bold text-foreground">{item.percent}%</p>
+                        )}
+                      </div>
+                      {isReserveEditing && (
+                        <Slider
+                          value={[reserveDraft[index].percent]}
+                          onValueChange={(value: number[]) =>
+                            setReserveDraft((prev) =>
+                              prev.map((row, idx) => (idx === index ? { ...row, percent: value[0] } : row)),
+                            )
+                          }
+                          max={40}
+                          step={1}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/30 p-4 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">内部留保合計</p>
+                    <p className="text-lg font-bold text-foreground">{reserveTotal}%</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">可処分予算目安</p>
+                    <p className="text-lg font-bold text-[#345fe1]">{Math.max(0, 100 - reserveTotal)}%</p>
+                  </div>
+                  {reserveTotal > 100 && (
+                    <p className="text-xs text-red-500">合計が100%を超えています。</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

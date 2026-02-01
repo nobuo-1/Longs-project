@@ -34,21 +34,21 @@ interface FinanceFlowProps {
 const inventoryColumnSummaries = [
   {
     id: "sales",
-    title: "今期 売上/粗利カラム",
+    title: "今期 売上/粗利",
     value: 6170000,
     description: "今期の純売上金額合計 (view: 売上・粗利)",
     icon: BarChart3,
   },
   {
     id: "payables",
-    title: "今期 仕入/支払カラム",
+    title: "今期 仕入/支払",
     value: 3720000,
     description: "今期の支払額合計 (view: 仕入・支払)",
     icon: Wallet,
   },
   {
     id: "receivables",
-    title: "今期 請求/入金カラム",
+    title: "今期 請求/入金",
     value: 7850000,
     description: "今期の入金額合計 (view: 請求・入金)",
     icon: Building2,

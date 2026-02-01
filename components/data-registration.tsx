@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Upload, Download, Table } from "lucide-react"
+import { Upload, Download, Table, ChevronRight, AlertTriangle, XCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -22,6 +22,29 @@ type ImportHistory = {
   rows: number
   status: "success" | "partial" | "failed"
   note?: string
+  summary: string
+  stats: {
+    processed: number
+    success: number
+    skipped: number
+    warnings: number
+    errors: number
+  }
+  warnings?: string[]
+  errors?: string[]
+}
+
+type HistoryDialogState = {
+  datasetId: string
+  datasetName: string
+  datasetDescription: string
+  history: ImportHistory
+}
+
+const statusLabels: Record<ImportHistory["status"], string> = {
+  success: "取込完了",
+  partial: "一部注意",
+  failed: "失敗",
 }
 
 const importHistoryByDataset: Record<string, ImportHistory[]> = {
@@ -32,6 +55,8 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       importedAt: "2024/12/20 10:30",
       rows: 12450,
       status: "success",
+      summary: "全レコードが正常に取り込まれました。",
+      stats: { processed: 12450, success: 12450, skipped: 0, warnings: 0, errors: 0 },
     },
     {
       id: "sales-2024-11",
@@ -39,6 +64,8 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       importedAt: "2024/11/25 09:12",
       rows: 11980,
       status: "success",
+      summary: "売上データを問題なく取り込みました。",
+      stats: { processed: 11980, success: 11980, skipped: 0, warnings: 0, errors: 0 },
     },
   ],
   payables: [
@@ -48,6 +75,8 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       importedAt: "2024/12/18 14:02",
       rows: 3580,
       status: "success",
+      summary: "支払い予定データが正常に取り込まれました。",
+      stats: { processed: 3580, success: 3580, skipped: 0, warnings: 0, errors: 0 },
     },
     {
       id: "payables-2024-11",
@@ -56,6 +85,9 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       rows: 3400,
       status: "partial",
       note: "数行の欠損あり",
+      summary: "一部欠損行を除外して取り込みました。",
+      stats: { processed: 3400, success: 3380, skipped: 20, warnings: 2, errors: 0 },
+      warnings: ["仕入先コードが未設定の行が20件ありスキップしました。", "日付形式の揺れが2件あり自動補正しました。"],
     },
   ],
   receivables: [
@@ -65,6 +97,8 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       importedAt: "2024/12/19 16:20",
       rows: 6720,
       status: "success",
+      summary: "入金予定データを問題なく取り込みました。",
+      stats: { processed: 6720, success: 6720, skipped: 0, warnings: 0, errors: 0 },
     },
     {
       id: "receivables-2024-11",
@@ -72,6 +106,8 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       importedAt: "2024/11/22 11:05",
       rows: 6550,
       status: "success",
+      summary: "入金予定データを問題なく取り込みました。",
+      stats: { processed: 6550, success: 6550, skipped: 0, warnings: 0, errors: 0 },
     },
   ],
   "gross-profit": [
@@ -81,6 +117,8 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       importedAt: "2024/12/10 08:45",
       rows: 980,
       status: "success",
+      summary: "年度粗利データが正常に取り込まれました。",
+      stats: { processed: 980, success: 980, skipped: 0, warnings: 0, errors: 0 },
     },
     {
       id: "gross-profit-2023",
@@ -89,6 +127,13 @@ const importHistoryByDataset: Record<string, ImportHistory[]> = {
       rows: 960,
       status: "failed",
       note: "フォーマット不一致",
+      summary: "フォーマット不一致のため取り込みに失敗しました。",
+      stats: { processed: 960, success: 0, skipped: 0, warnings: 0, errors: 3 },
+      errors: [
+        "列数が想定と一致しません（期待: 12列 / 実際: 9列）。",
+        "必須列「gross_margin」が見つかりません。",
+        "日付列「month」がYYYY-MM形式ではありません。",
+      ],
     },
   ],
 }
@@ -98,6 +143,7 @@ export function DataRegistration() {
   const [importTargetId, setImportTargetId] = useState<string | null>(null)
   const [importFileName, setImportFileName] = useState("")
   const [isDragActive, setIsDragActive] = useState(false)
+  const [activeHistory, setActiveHistory] = useState<HistoryDialogState | null>(null)
   const [importStates, setImportStates] = useState<Record<string, ImportState>>(() =>
     dataSets.reduce((acc, set) => {
       acc[set.id] = { uploading: false, progress: 0, lastImportedAt: "2024/12/20 10:30" }
@@ -217,28 +263,45 @@ export function DataRegistration() {
                   ) : (
                     <div className="divide-y divide-border/70">
                       {histories.map((history) => (
-                        <div key={history.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{history.fileName}</p>
-                            <p className="text-xs text-muted-foreground">{history.importedAt}</p>
-                            {history.note && <p className="text-xs text-muted-foreground">{history.note}</p>}
+                        <button
+                          key={history.id}
+                          type="button"
+                          onClick={() =>
+                            setActiveHistory({
+                              datasetId: set.id,
+                              datasetName: set.name,
+                              datasetDescription: set.description,
+                              history,
+                            })
+                          }
+                          className="w-full text-left px-3 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#345fe1]"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{history.fileName}</p>
+                              <p className="text-xs text-muted-foreground">{history.importedAt}</p>
+                              {history.note && <p className="text-xs text-muted-foreground">{history.note}</p>}
+                            </div>
+                            <div className="flex items-center gap-3 text-right">
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">{formatValue(history.rows)} 行</p>
+                                <p
+                                  className={cn(
+                                    "text-xs font-medium",
+                                    history.status === "success"
+                                      ? "text-[#345fe1]"
+                                      : history.status === "partial"
+                                        ? "text-amber-600"
+                                        : "text-red-600",
+                                  )}
+                                >
+                                  {statusLabels[history.status]}
+                                </p>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-foreground">{formatValue(history.rows)} 行</p>
-                            <p
-                              className={cn(
-                                "text-xs font-medium",
-                                history.status === "success"
-                                  ? "text-[#345fe1]"
-                                  : history.status === "partial"
-                                    ? "text-amber-600"
-                                    : "text-red-600",
-                              )}
-                            >
-                              {history.status === "success" ? "取込完了" : history.status === "partial" ? "一部注意" : "失敗"}
-                            </p>
-                          </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -333,6 +396,121 @@ export function DataRegistration() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!activeHistory}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveHistory(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>アップロード履歴の詳細</DialogTitle>
+            <DialogDescription>
+              {activeHistory?.datasetName} / {activeHistory?.history.fileName}
+              {activeHistory?.datasetDescription ? ` • ${activeHistory.datasetDescription}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {activeHistory && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">アップロード日時</p>
+                    <p className="text-sm font-medium text-foreground">{activeHistory.history.importedAt}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">ステータス</p>
+                    <p
+                      className={cn(
+                        "text-sm font-semibold",
+                        activeHistory.history.status === "success"
+                          ? "text-[#345fe1]"
+                          : activeHistory.history.status === "partial"
+                            ? "text-amber-600"
+                            : "text-red-600",
+                      )}
+                    >
+                      {statusLabels[activeHistory.history.status]}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">取込行数</p>
+                    <p className="text-sm font-semibold text-foreground">{formatValue(activeHistory.history.rows)} 行</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-xs text-muted-foreground">概要</p>
+                  <p className="text-sm text-foreground">{activeHistory.history.summary}</p>
+                  {activeHistory.history.note && (
+                    <p className="text-xs text-muted-foreground mt-1">補足: {activeHistory.history.note}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                <div className="rounded-lg border border-border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">処理対象</p>
+                  <p className="text-sm font-semibold text-foreground">{formatValue(activeHistory.history.stats.processed)}</p>
+                </div>
+                <div className="rounded-lg border border-border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">正常</p>
+                  <p className="text-sm font-semibold text-[#345fe1]">{formatValue(activeHistory.history.stats.success)}</p>
+                </div>
+                <div className="rounded-lg border border-border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">スキップ</p>
+                  <p className="text-sm font-semibold text-foreground">{formatValue(activeHistory.history.stats.skipped)}</p>
+                </div>
+                <div className="rounded-lg border border-border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">注意</p>
+                  <p className="text-sm font-semibold text-amber-600">
+                    {formatValue(activeHistory.history.stats.warnings)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">エラー</p>
+                  <p className="text-sm font-semibold text-red-600">{formatValue(activeHistory.history.stats.errors)}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <p className="text-sm font-semibold text-foreground">注意 / 警告</p>
+                  </div>
+                  {activeHistory.history.warnings?.length ? (
+                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                      {activeHistory.history.warnings.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">注意事項はありません。</p>
+                  )}
+                </div>
+                <div className="rounded-lg border border-border p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                    <p className="text-sm font-semibold text-foreground">エラー詳細</p>
+                  </div>
+                  {activeHistory.history.errors?.length ? (
+                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                      {activeHistory.history.errors.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">エラーはありません。</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
