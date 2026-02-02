@@ -381,7 +381,7 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-55">
             <Input
-              placeholder="商品名 / SKU / ブランド / メーカー"
+              placeholder="商品名 / JAN / ブランド / メーカー"
               value={catalogSearch}
               onChange={(e) => {
                 setCatalogSearch(e.target.value)
@@ -469,7 +469,7 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
           <table className="min-w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">SKU</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">JAN</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">商品名</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">メーカー</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">ブランド</th>
@@ -598,7 +598,7 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
                 <table className="min-w-full text-sm">
                   <thead className="bg-muted/60">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">SKU</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">JAN</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">商品</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">カテゴリ</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">現在庫</th>

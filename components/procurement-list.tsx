@@ -82,7 +82,7 @@ export function ProcurementList() {
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/60">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">SKU</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">JAN</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">商品</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">カテゴリ</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">現在庫</th>

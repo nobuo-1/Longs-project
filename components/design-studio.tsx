@@ -169,6 +169,7 @@ const historyData = [
 
 export function DesignStudio({ initialType, showHistory = false }: DesignStudioProps) {
   const [selectedColor, setSelectedColor] = useState("")
+  const [popTitle, setPopTitle] = useState("")
   const [catchphrase, setCatchphrase] = useState("")
   const [mainText, setMainText] = useState("")
   const [prompt, setPrompt] = useState("")
@@ -185,6 +186,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
   const [historyStyleFilter, setHistoryStyleFilter] = useState<string>("all")
   const [historyDateRange, setHistoryDateRange] = useState<HistoryDateRange>("all")
   const [historyYear, setHistoryYear] = useState<number | null>(null)
+  const [historyTitleQuery, setHistoryTitleQuery] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleGenerate = () => {
@@ -259,6 +261,11 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
   startOfLast30.setDate(startOfToday.getDate() - 29)
 
   const filteredHistory = historyData.filter((item) => {
+    if (historyTitleQuery.trim()) {
+      const keyword = historyTitleQuery.trim().toLowerCase()
+      if (!item.title.toLowerCase().includes(keyword)) return false
+    }
+
     if (selectedStyleName && item.style !== selectedStyleName) return false
 
     const createdAt = parseHistoryDate(item.createdAt)
@@ -573,6 +580,15 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
               })}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold text-muted-foreground w-12">タイトル</span>
+              <Input
+                value={historyTitleQuery}
+                onChange={(e) => setHistoryTitleQuery(e.target.value)}
+                placeholder="POPタイトルで検索"
+                className="h-8 w-full max-w-xs text-sm"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-semibold text-muted-foreground w-12">日付</span>
               {historyDateRanges.map((range) => {
                 const isActive = historyDateRange === range.id
@@ -693,7 +709,7 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
             <Card className="border-none bg-transparent shadow-none">
               <CardContent className="p-0">
                 <div className="rounded-[28px] border border-border bg-card px-5 py-4 shadow-sm">
-                  {showSelectionBadges ? (
+                {showSelectionBadges ? (
                     <div className="mb-2 flex flex-wrap items-center gap-1.5">
                       {hasStyle && (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -726,6 +742,15 @@ export function DesignStudio({ initialType, showHistory = false }: DesignStudioP
                       ) : null}
                     </div>
                   ) : null}
+                  <div className="mb-4 space-y-2">
+                    <Label className="text-xs text-muted-foreground">POPタイトル</Label>
+                    <Input
+                      value={popTitle}
+                      onChange={(e) => setPopTitle(e.target.value)}
+                      placeholder="例: 春の新作フェア"
+                      className="h-9"
+                    />
+                  </div>
                   <Textarea
                     placeholder="指示文を入力してください。例: 春らしい明るい雰囲気で、花柄のパターンを背景に配置し、セール情報を目立たせてください。"
                     value={prompt}
