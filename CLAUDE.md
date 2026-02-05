@@ -1,0 +1,85 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+pnpm dev          # Start development server (http://localhost:3000)
+pnpm build        # Production build
+pnpm start        # Start production server
+pnpm lint         # Run ESLint
+
+# Prisma (database)
+npx prisma generate   # Regenerate Prisma client after schema changes
+npx prisma migrate dev --name <name>  # Create and apply a new migration
+npx prisma studio     # Open Prisma Studio GUI
+```
+
+Package manager is **pnpm**. Path alias `@/` maps to the project root.
+
+## Development Environment
+
+The project is set up for **VS Code Dev Containers** via `.devcontainer/` backed by `docker-compose.yml`. The Compose stack includes:
+- `app` service: Node 20 running `pnpm dev`
+- `db` service: PostgreSQL 15 (`apparel_db`, user/password credentials in `.env.example`)
+
+`DATABASE_URL` in `.env` must point to the correct host — `localhost` for local, `db` inside Docker Compose.
+
+## Architecture Overview
+
+**Next.js 16 App Router** application for apparel business management (アパレル管理システム). All UI text is in **Japanese**.
+
+### Routing & Layout
+
+- `app/layout.tsx` — root layout, sets `lang="ja"`, loads Geist font, wraps Vercel Analytics
+- `app/page.tsx` — renders `<HomeClient />` inside a `<Suspense>` boundary
+- `app/login/page.tsx` — standalone login page (hardcoded demo credentials: `owner@apparel.jp` / `demopass`)
+- `app/settings/page.tsx` — standalone settings page (category deadlines, fixed costs, reserves); state is local only
+
+### Single-Page App Pattern (HomeClient)
+
+The authenticated app is effectively a **single-page application routed via URL search params**. `components/home-client.tsx` is the main shell:
+- It renders `<Sidebar />` for navigation and a `<Header />`.
+- The active section/subsection is read from the URL and determines which domain component to render.
+- All domain components are client components (`"use client"`).
+
+### Domain Components (in `components/`)
+
+| Component | File | Description |
+|-----------|------|-------------|
+| Design Studio | `design-studio.tsx` | POP/poster creation with style, color, text, aspect ratio, and design history |
+| Inventory AI | `inventory-ai.tsx` | Procurement recommendations and product catalog |
+| Finance Flow | `finance-flow.tsx` | Cash flow dashboard, payment schedules, Gantt chart |
+| Data Hub | `data-hub.tsx` | Multi-dataset table view (sales, payables, receivables, gross profit) |
+| Data Registration | `data-registration.tsx` | New data entry and CSV import |
+| Inventory Planning | `inventory-planning.tsx` | Early-reference planning table |
+| Procurement List | `procurement-list.tsx` | Purchase order management |
+
+### State & Data Persistence
+
+**All data is currently client-side only — no backend API or database calls exist yet.**
+
+- `hooks/use-data-store.ts` — manages the four dataset types via `localStorage`. Initial data comes from `lib/data-sets.ts`.
+- `hooks/use-procurement-list.ts` — manages procurement items via `localStorage`.
+- Most domain components also use local `useState` for draft/edit state.
+- `lib/data-sets.ts` defines the column schemas and sample rows for all four datasets. Data is "paginated" by repeating sample rows up to ~1200 entries.
+
+### UI Layer
+
+- **shadcn/ui** (`components/ui/`, 50+ components) with `new-york` style. Add new components via `npx shadcn add <component>`.
+- **Tailwind CSS v4** — configured via `@tailwindcss/postcss` in `postcss.config.mjs`. There is no `tailwind.config.*` file; theme tokens (colors, radius, fonts) are defined as CSS variables in `styles/globals.css` using `oklch()` color space.
+- Icons: **Lucide React**.
+- Charts: **Recharts**.
+- Utility: `lib/utils.ts` exports `cn()` (clsx + tailwind-merge).
+
+### Database (Prisma — not yet wired to frontend)
+
+`prisma/schema.prisma` currently has only a `User` model. Prisma client is generated but not imported anywhere in the application. The `src/` directory (`src/actions/`, `src/services/`, `src/lib/`) is scaffolded but empty — this is where backend logic (server actions, service layer) is intended to go.
+
+## Key Conventions
+
+- **No API routes exist yet.** When adding backend functionality, use Next.js **Server Actions** in `src/actions/` rather than `app/api/` routes.
+- **`next.config.mjs`** has `typescript.ignoreBuildErrors: true` — TypeScript errors will not break the build.
+- **Images are unoptimized** (`images: { unoptimized: true }`) — static assets in `public/` are used as-is.
+- Component files in `components/` use default exports. Domain-specific components are large single-file modules.

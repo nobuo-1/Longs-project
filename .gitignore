@@ -32,3 +32,8 @@ node_modules/
 .next/
 dist/
 .DS_Store
+
+# 山田
+yamadadocs/
+.vscode/
+.CLAUDE.md
