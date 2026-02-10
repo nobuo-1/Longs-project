@@ -73,8 +73,21 @@ model UserAccount {
 
   procurementLists ProcurementList[]
   designAssets     DesignAsset[]
+  sessions         Session[]
 
   @@map("user_account")
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
 }
 
 // ============================================================
