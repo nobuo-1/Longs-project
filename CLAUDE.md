@@ -73,9 +73,14 @@ The authenticated app is effectively a **single-page application routed via URL 
 - Charts: **Recharts**.
 - Utility: `lib/utils.ts` exports `cn()` (clsx + tailwind-merge).
 
-### Database (Prisma — not yet wired to frontend)
+### Database (Prisma)
 
-`prisma/schema.prisma` currently has only a `User` model. Prisma client is generated but not imported anywhere in the application. The `src/` directory (`src/actions/`, `src/services/`, `src/lib/`) is scaffolded but empty — this is where backend logic (server actions, service layer) is intended to go.
+- **スキーマ定義**: `prisma/schema.prisma` — 24テーブル + 6 Enum（UNIFIED_DB_DESIGN.md に基づく）
+- **クライアント**: `src/lib/prisma.ts` — PrismaClient シングルトン。`globalThis` パターンで HMR 時の多重接続を防止。Server Actions やサービス層から `import { prisma } from "@/src/lib/prisma"` で使用する
+- **マイグレーション**: `prisma/migrations/` — 初期マイグレーション適用済み。CHECK制約（`reserve_policy.percent`, `finance_schedule.due_day`）は手動追加
+- **DB管理ドキュメント**: `docs/DATABASE.md` — 接続方法、マイグレーション手順、psqlコマンド、トラブルシューティング
+- **設計ドキュメント**: `yamadadocs/UNIFIED_DB_DESIGN.md` — 全テーブルのSQL定義とER図
+- **バックエンド層**: `src/actions/`（Server Actions）, `src/services/`（ビジネスロジック）, `src/lib/`（共通ユーティリティ）はスキャフォールド済み・実装待ち
 
 ## Key Conventions
 
