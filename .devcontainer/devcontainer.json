@@ -3,6 +3,9 @@
   "dockerComposeFile": "../docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/app",
+  "remoteEnv": {
+    "CLAUDE_CONFIG_DIR": "/claude"
+  },
   "customizations": {
     "vscode": {
       "extensions": [

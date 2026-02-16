@@ -88,3 +88,34 @@ The authenticated app is effectively a **single-page application routed via URL 
 - **`next.config.mjs`** has `typescript.ignoreBuildErrors: true` — TypeScript errors will not break the build.
 - **Images are unoptimized** (`images: { unoptimized: true }`) — static assets in `public/` are used as-is.
 - Component files in `components/` use default exports. Domain-specific components are large single-file modules.
+
+## Git Operations
+
+**Allowed**: Read-only git commands for status checking
+- `git log` — View commit history
+- `git status` — Check current state
+- `git diff` — View changes
+
+**Prohibited**: Destructive git operations
+- `git add` — Do NOT stage changes
+- `git commit` — Do NOT create commits
+- `git push` — Do NOT push to remote
+- Any force operations (`--force`, `--hard`, etc.)
+
+The user will handle all git staging and commit operations.
+
+## Docker Environment & Memory Files
+
+**Important**: This project runs inside Docker Compose (`docker-compose.yml`). The following volumes are mounted:
+- `.:/app` — Host directory mounted to container `/app`
+- `claude_data:/claude` — Named volume for Claude's persistent storage
+
+**Memory File Location**:
+- If local memory files are not found, check the Docker volume at `/claude/projects/-app/memory/`
+- This location persists across container restarts
+- All Claude session data, plans, and project memory are stored here
+- Access via: `ls -la /claude/projects/-app/memory/`
+
+**Implementation Plans**:
+- Latest plans are stored in `/claude/plans/` (e.g., `goofy-questing-rocket.md`)
+- These documents contain detailed implementation strategies and should be checked before starting work

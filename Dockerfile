@@ -7,9 +7,7 @@ WORKDIR /app
 # - locales: # 開発用（git log の日本語文字化け対策など）
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
-      openssl \
-      git \
-      locales \
+      openssl git locales curl ca-certificates \
  && sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
  && locale-gen \
  && update-locale LANG=en_US.UTF-8 \
@@ -22,6 +20,10 @@ ENV LC_ALL=en_US.UTF-8
 
 # Install pnpm
 RUN npm install -g pnpm
+
+# Claude Code (公式インストーラ)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+RUN ln -sf /root/.local/bin/claude /usr/local/bin/claude
 
 COPY package.json pnpm-lock.yaml ./
 
