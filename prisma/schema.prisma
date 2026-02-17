@@ -517,10 +517,28 @@ model DesignAsset {
   imageUrl  String?    @map("image_url")
   createdBy String?    @map("created_by") @db.Uuid
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz()
 
   creator UserAccount? @relation(fields: [createdBy], references: [id])
+  aiLogs  AiGenerationLog[]
 
   @@map("design_asset")
+}
+
+model AiGenerationLog {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  designAssetId    String   @map("design_asset_id") @db.Uuid
+  model            String
+  promptTokens     Int      @map("prompt_tokens")
+  candidatesTokens Int      @map("candidates_tokens")
+  totalTokens      Int      @map("total_tokens")
+  responseTimeMs   Int?     @map("response_time_ms")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  designAsset DesignAsset @relation(fields: [designAssetId], references: [id], onDelete: Cascade)
+
+  @@index([designAssetId])
+  @@map("ai_generation_log")
 }
 
 model AiInsight {

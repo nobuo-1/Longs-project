@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+.pnpm-store/
 
 # next.js
 /.next/
@@ -37,3 +38,4 @@ dist/
 yamadadocs/
 .vscode/
 .CLAUDE.md
+.claude/
