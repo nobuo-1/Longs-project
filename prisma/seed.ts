@@ -23,7 +23,20 @@ async function main() {
     },
   })
 
+  const testUser = await prisma.userAccount.upsert({
+    where: { email: "testuser@apparel.jp" },
+    update: {},
+    create: {
+      email: "testuser@apparel.jp",
+      name: "テストユーザー",
+      passwordHash: await
+  bcrypt.hash("testpass", 10),
+      role: UserRole.general,
+    },
+  })
+
   console.log(`✓ Created demo user: ${user.email}`)
+  console.log(`✓ Created demo user: ${testUser.email}`)
 
   // DesignAsset サンプルデータ（デモ用 POP 4件）
   // ※ imageUrl が null のものは元々ローカルファイル保存だったため画像なし

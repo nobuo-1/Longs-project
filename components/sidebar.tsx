@@ -63,7 +63,7 @@ const navItems = [
     icon: Upload,
     subItems: [
       { id: "data-main", label: "データ一覧", icon: Table, href: "/data" },
-      { id: "data-import", label: "データインポート", icon: Upload, href: "/data/import" },
+      { id: "data-import", label: "データ登録", icon: Upload, href: "/data/import" },
     ],
   },
   {

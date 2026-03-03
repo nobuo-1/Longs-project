@@ -91,12 +91,12 @@ const styleMapEN: Record<string, string> = {
 }
 
 const styles = [
-  { id: "modern", name: "モダン", image: "/modern-minimalist-design-style.jpg" },
-  { id: "retro", name: "レトロ", image: "/retro-vintage-design-style.jpg" },
-  { id: "street", name: "ストリート", image: "/street-urban-design-style.jpg" },
-  { id: "elegant", name: "エレガント", image: "/elegant-luxury-design-style.jpg" },
-  { id: "casual", name: "カジュアル", image: "/casual-friendly-design-style.jpg" },
-  { id: "sporty", name: "スポーティー", image: "/sporty-dynamic-design-style.jpg" },
+  { id: "modern", name: "モダン", image: "/generate-styles/modern.jpg" },
+  { id: "retro", name: "レトロ", image: "/generate-styles/retro.jpg" },
+  { id: "street", name: "ストリート", image: "/generate-styles/street.jpg" },
+  { id: "elegant", name: "エレガント", image: "/generate-styles/elegant.jpg" },
+  { id: "casual", name: "カジュアル", image: "/generate-styles/casual.jpg" },
+  { id: "sporty", name: "スポーティー", image: "/generate-styles/sporty.jpg" },
 ]
 
 const aspectRatios = [
