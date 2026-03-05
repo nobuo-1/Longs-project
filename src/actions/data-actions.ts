@@ -1,5 +1,6 @@
 "use server"
 
+import { revalidateTag } from "next/cache"
 import { getSession } from "@/src/lib/auth"
 import * as dataService from "@/src/services/data-service"
 import { getExtension } from "@/src/lib/csv-parser"
@@ -36,6 +37,9 @@ export async function importDataAction(formData: FormData): Promise<
     const unknownItemHandling = rawHandling === "add" ? "add" : "use_other"
 
     const result = await dataService.importData(buffer, file.name, dataset, session.userId, unknownItemHandling)
+    if (dataset === "inventory_snapshot" || dataset === "sales") {
+      revalidateTag("insights")
+    }
     return { success: true, data: result }
   } catch (e) {
     console.error("[importDataAction]", e)

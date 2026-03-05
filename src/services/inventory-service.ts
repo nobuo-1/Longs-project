@@ -69,7 +69,7 @@ export async function getInventoryCatalog(): Promise<CatalogVariantRow[]> {
       FROM sales_fact
       WHERE jan_code = pv.jan_code
         AND deleted_at IS NULL
-        AND (snap.period_ym IS NULL OR sales_date > snap.period_ym)
+        AND (snap.period_ym IS NULL OR DATE_TRUNC('month', sales_date) > snap.period_ym)
     ) sales_agg ON true
     ORDER BY p.name, pv.color, pv.size
   `
@@ -179,7 +179,7 @@ export async function getProcurementListForUser(
       SELECT COALESCE(SUM(net_qty), 0) AS sold_qty
       FROM sales_fact
       WHERE jan_code = pv.jan_code AND deleted_at IS NULL
-        AND (snap.period_ym IS NULL OR sales_date > snap.period_ym)
+        AND (snap.period_ym IS NULL OR DATE_TRUNC('month', sales_date) > snap.period_ym)
     ) sales_agg ON true
     WHERE pi.list_id = ${listId}::uuid
     ORDER BY pi.added_at ASC

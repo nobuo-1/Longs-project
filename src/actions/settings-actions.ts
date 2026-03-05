@@ -53,6 +53,32 @@ export async function updateCategoryAction(
   }
 }
 
+export async function getInventoryTurnoverPeriodAction(): Promise<
+  { success: true; months: number } | { success: false; error: string }
+> {
+  try {
+    const months = await settingsService.getInventoryTurnoverPeriodMonths()
+    return { success: true, months }
+  } catch (e) {
+    console.error("[getInventoryTurnoverPeriodAction]", e)
+    return { success: false, error: "設定の取得に失敗しました" }
+  }
+}
+
+export async function setInventoryTurnoverPeriodAction(
+  months: number,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const valid = [1, 3, 6, 12]
+    if (!valid.includes(months)) return { success: false, error: "無効な期間です" }
+    await settingsService.setInventoryTurnoverPeriodMonths(months)
+    return { success: true }
+  } catch (e) {
+    console.error("[setInventoryTurnoverPeriodAction]", e)
+    return { success: false, error: "設定の保存に失敗しました" }
+  }
+}
+
 export async function deleteCategoryAction(
   id: string,
 ): Promise<{ success: boolean; error?: string }> {

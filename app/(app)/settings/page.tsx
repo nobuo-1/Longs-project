@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Calendar, Settings2, Wallet, Plus, Trash2, Loader2 } from "lucide-react"
+import { Calendar, Settings2, Wallet, Plus, Trash2, Loader2, RefreshCcw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,8 +11,18 @@ import {
   createCategoryAction,
   updateCategoryAction,
   deleteCategoryAction,
+  getInventoryTurnoverPeriodAction,
+  setInventoryTurnoverPeriodAction,
 } from "@/src/actions/settings-actions"
 import type { CategoryDTO } from "@/src/actions/settings-actions"
+
+// ── 在庫回転率の計算期間選択肢 ──────────────────────────────────────────────
+const TURNOVER_PERIOD_OPTIONS = [
+  { value: 1, label: "1ヶ月" },
+  { value: 3, label: "3ヶ月" },
+  { value: 6, label: "6ヶ月" },
+  { value: 12, label: "12ヶ月（1年）" },
+]
 
 // ── 固定費・内部留保はローカル状態のまま ──────────────────────────────────
 
@@ -42,6 +52,38 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState<DraftRow[]>([])
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({})
+
+  // ── 在庫回転率計算期間状態 ────────────────────────────────────────────────
+  const [turnoverPeriod, setTurnoverPeriod] = useState<number>(12)
+  const [turnoverPeriodDraft, setTurnoverPeriodDraft] = useState<number>(12)
+  const [isTurnoverEditing, setIsTurnoverEditing] = useState(false)
+  const [turnoverLoading, setTurnoverLoading] = useState(true)
+  const [turnoverSaving, setTurnoverSaving] = useState(false)
+  const [turnoverError, setTurnoverError] = useState<string | null>(null)
+
+  // ── 在庫回転率計算期間: DBから初期値ロード ────────────────────────────────
+  useEffect(() => {
+    ;(async () => {
+      const res = await getInventoryTurnoverPeriodAction()
+      if (res.success) setTurnoverPeriod(res.months)
+      setTurnoverLoading(false)
+    })()
+  }, [])
+
+  const handleTurnoverEdit = () => { setTurnoverPeriodDraft(turnoverPeriod); setTurnoverError(null); setIsTurnoverEditing(true) }
+  const handleTurnoverSave = async () => {
+    setTurnoverSaving(true)
+    const res = await setInventoryTurnoverPeriodAction(turnoverPeriodDraft)
+    setTurnoverSaving(false)
+    if (res.success) {
+      setTurnoverPeriod(turnoverPeriodDraft)
+      setIsTurnoverEditing(false)
+      setTurnoverError(null)
+    } else {
+      setTurnoverError(res.error)
+    }
+  }
+  const handleTurnoverCancel = () => { setTurnoverPeriodDraft(turnoverPeriod); setTurnoverError(null); setIsTurnoverEditing(false) }
 
   // ── 固定費・内部留保状態 ──────────────────────────────────────────────────
   const [fixedCosts, setFixedCosts] = useState(fixedCostDefaults)
@@ -296,6 +338,91 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── 在庫回転率の計算期間設定 ── */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCcw className="w-5 h-5 text-[#345fe1]" />
+                在庫回転率の計算期間設定
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {isTurnoverEditing ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={handleTurnoverCancel} disabled={turnoverSaving}>
+                      キャンセル
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                      onClick={handleTurnoverSave}
+                      disabled={turnoverSaving}
+                    >
+                      {turnoverSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                      保存
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleTurnoverEdit} disabled={turnoverLoading}>
+                    編集
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              在庫回転率の算出に使用する基準期間を設定します。売上原価や平均在庫金額の集計範囲に反映されます。
+            </p>
+            {turnoverLoading ? (
+              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">読み込み中...</span>
+              </div>
+            ) : (
+            <>
+            {turnoverError && <p className="text-xs text-red-500">{turnoverError}</p>}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {TURNOVER_PERIOD_OPTIONS.map((option) => {
+                const active = isTurnoverEditing
+                  ? turnoverPeriodDraft === option.value
+                  : turnoverPeriod === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={!isTurnoverEditing}
+                    onClick={() => isTurnoverEditing && setTurnoverPeriodDraft(option.value)}
+                    className={[
+                      "rounded-lg border p-4 text-center transition-colors",
+                      active
+                        ? "border-[#345fe1] bg-[#345fe1]/5 text-[#345fe1]"
+                        : "border-border bg-background text-foreground",
+                      isTurnoverEditing && !active
+                        ? "hover:border-[#345fe1]/50 hover:bg-[#345fe1]/5 cursor-pointer"
+                        : "",
+                      !isTurnoverEditing ? "cursor-default" : "",
+                    ].join(" ")}
+                  >
+                    <p className="text-lg font-bold">{option.label}</p>
+                    {option.value === 12 && (
+                      <p className="text-xs text-muted-foreground mt-1">デフォルト</p>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+              <p className="text-xs text-muted-foreground">現在の設定</p>
+              <p className="text-lg font-bold text-foreground mt-1">
+                {TURNOVER_PERIOD_OPTIONS.find((o) => o.value === turnoverPeriod)?.label ?? `${turnoverPeriod}ヶ月`}
+              </p>
+            </div>
+            </>
             )}
           </CardContent>
         </Card>

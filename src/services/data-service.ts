@@ -498,7 +498,7 @@ async function upsertProductMaster(
   // (productId + color + size) ごとに ProductVariant を upsert
   const variantGroups = new Map<
     string,
-    { productCode: string; colorCode?: string; color: string | null; sizeCode?: string; size: string | null; janCode?: string }
+    { productCode: string; colorCode?: string; color: string | null; sizeCode?: string; size: string | null; janCode?: string; priceYen?: bigint | null }
   >()
   for (const r of rows) {
     const productCode = r.productCode as string
@@ -513,6 +513,7 @@ async function upsertProductMaster(
       sizeCode: (r.cs2Code as string) || undefined,
       size,
       janCode: (r.janCode as string) || undefined,
+      priceYen: dataset === "sales" ? ((r.listPriceYen as bigint | null | undefined) ?? null) : undefined,
     })
   }
 
@@ -520,12 +521,21 @@ async function upsertProductMaster(
     const productId = productIdMap.get(data.productCode)
     if (!productId) continue
     await prisma.productVariant.upsert({
-      where: { productId_color_size: { productId, color: data.color, size: data.size } },
-      create: { productId, color: data.color, size: data.size, colorCode: data.colorCode, sizeCode: data.sizeCode, janCode: data.janCode },
+      where: { productId_color_size: { productId, color: data.color ?? "", size: data.size ?? "" } },
+      create: {
+        productId,
+        color: data.color,
+        size: data.size,
+        colorCode: data.colorCode,
+        sizeCode: data.sizeCode,
+        janCode: data.janCode,
+        ...(data.priceYen != null ? { priceYen: data.priceYen } : {}),
+      },
       update: {
         colorCode: data.colorCode,
         sizeCode: data.sizeCode,
         janCode: data.janCode,
+        ...(data.priceYen != null ? { priceYen: data.priceYen } : {}),
       },
     })
   }

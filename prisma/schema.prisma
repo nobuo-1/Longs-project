@@ -128,6 +128,14 @@ model ReservePolicy {
   @@map("reserve_policy")
 }
 
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("system_setting")
+}
+
 // ============================================================
 // 商品・在庫
 // ============================================================

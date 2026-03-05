@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Package, BarChart2, ShoppingCart, AlertTriangle, TrendingDown, Clock } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,16 +21,26 @@ import {
   Legend,
 } from "recharts"
 import { cn } from "@/lib/utils"
+import {
+  getSalesCompositionAction,
+  getYearlyComparisonAction,
+  getStockTurnoverAction,
+  getSalesForecastAction,
+  getTurnoverRankingAction,
+  getCategoryAgingAction,
+  getInventoryAlertAction,
+} from "@/src/actions/insights-actions"
+import type {
+  SalesCompositionData,
+  YearlyComparisonData,
+  StockTurnoverRow,
+  SalesForecastData,
+  TurnoverRankingRow,
+  CategoryAgingRow,
+  InventoryAlertItem,
+} from "@/src/actions/insights-actions"
 
 const RADIAN = Math.PI / 180
-
-const categorySalesData = [
-  { name: "トップス", value: 35, color: "#dbeafe" },
-  { name: "ボトムス", value: 25, color: "#dcfce7" },
-  { name: "アウター", value: 20, color: "#ffedd5" },
-  { name: "シューズ", value: 12, color: "#ede9fe" },
-  { name: "アクセサリー", value: 8, color: "#fce7f3" },
-]
 
 const renderCategoryLabel = (props: any) => {
   const { cx, cy, midAngle, innerRadius, outerRadius, name, value } = props
@@ -49,83 +59,7 @@ const renderCategoryLabel = (props: any) => {
   )
 }
 
-type InventoryAlert = {
-  id: number
-  type: "low_stock" | "overstock" | "expiring"
-  severity: "critical" | "warning" | "info"
-  product: string
-  productId: string
-  category: string
-  currentStock: number
-  threshold: number
-  message: string
-  date: string
-}
-
-const alertsData: InventoryAlert[] = [
-  {
-    id: 1,
-    type: "low_stock",
-    severity: "critical",
-    product: "春物ジャケット（ネイビー）",
-    productId: "SKU001",
-    category: "アウター",
-    currentStock: 3,
-    threshold: 10,
-    message: "在庫が危険水準です。即座に発注が必要です。",
-    date: "2024/12/19 10:30",
-  },
-  {
-    id: 2,
-    type: "low_stock",
-    severity: "critical",
-    product: "リネンシャツ（ベージュ）",
-    productId: "SKU004",
-    category: "トップス",
-    currentStock: 5,
-    threshold: 15,
-    message: "来週の需要予測に対して在庫が不足しています。",
-    date: "2024/12/19 09:15",
-  },
-  {
-    id: 3,
-    type: "overstock",
-    severity: "warning",
-    product: "ウールコート（グレー）",
-    productId: "SKU005",
-    category: "アウター",
-    currentStock: 45,
-    threshold: 20,
-    message: "在庫過剰です。セール販売を検討してください。",
-    date: "2024/12/18 16:45",
-  },
-  {
-    id: 4,
-    type: "expiring",
-    severity: "warning",
-    product: "デニムパンツ（ブルー）",
-    productId: "SKU003",
-    category: "ボトムス",
-    currentStock: 35,
-    threshold: 30,
-    message: "季節商品のため、在庫消化が必要です。",
-    date: "2024/12/18 14:20",
-  },
-  {
-    id: 5,
-    type: "overstock",
-    severity: "info",
-    product: "レザーベルト（茶）",
-    productId: "SKU007",
-    category: "アクセサリー",
-    currentStock: 55,
-    threshold: 40,
-    message: "在庫が多めですが、ギフトシーズンで消化見込み。",
-    date: "2024/12/16 09:30",
-  },
-]
-
-const getAlertTypeLabel = (type: InventoryAlert["type"]) => {
+const getAlertTypeLabel = (type: InventoryAlertItem["type"]) => {
   switch (type) {
     case "low_stock":
       return "在庫不足"
@@ -138,7 +72,7 @@ const getAlertTypeLabel = (type: InventoryAlert["type"]) => {
   }
 }
 
-const getAlertIcon = (type: InventoryAlert["type"]) => {
+const getAlertIcon = (type: InventoryAlertItem["type"]) => {
   switch (type) {
     case "low_stock":
       return <TrendingDown className="w-4 h-4" />
@@ -151,96 +85,96 @@ const getAlertIcon = (type: InventoryAlert["type"]) => {
   }
 }
 
-const monthlyComparisonData = [
-  { month: "1月", 今年: 125, 昨年: 110 },
-  { month: "2月", 今年: 158, 昨年: 140 },
-  { month: "3月", 今年: 215, 昨年: 185 },
-  { month: "4月", 今年: 185, 昨年: 165 },
-  { month: "5月", 今年: 240, 昨年: 200 },
-  { month: "6月", 今年: 180, 昨年: 175 },
-]
-
-const stockTurnoverData = [
-  { category: "トップス", 回転率: 4.2, 目標: 4.0 },
-  { category: "ボトムス", 回転率: 3.8, 目標: 4.0 },
-  { category: "アウター", 回転率: 2.5, 目標: 3.0 },
-  { category: "シューズ", 回転率: 3.2, 目標: 3.5 },
-  { category: "アクセサリー", 回転率: 5.1, 目標: 4.5 },
-]
-
-const salesForecastData = [
-  { month: "1月", 過去売上: 120, 現在売上: 128, 予測需要: 132 },
-  { month: "2月", 過去売上: 150, 現在売上: 158, 予測需要: 162 },
-  { month: "3月", 過去売上: 200, 現在売上: 215, 予測需要: 222 },
-  { month: "4月", 過去売上: 180, 現在売上: 185, 予測需要: 192 },
-  { month: "5月", 過去売上: 220, 現在売上: 240, 予測需要: 250 },
-  { month: "6月", 過去売上: 190, 現在売上: 198, 予測需要: 205 },
-  { month: "7月", 過去売上: 210, 現在売上: 225, 予測需要: 232 },
-  { month: "8月", 過去売上: 240, 現在売上: 255, 予測需要: 262 },
-  { month: "9月", 過去売上: 230, 現在売上: 245, 予測需要: 250 },
-  { month: "10月", 過去売上: 260, 現在売上: 275, 予測需要: 285 },
-  { month: "11月", 過去売上: 280, 現在売上: 295, 予測需要: 305 },
-  { month: "12月", 過去売上: 320, 現在売上: 340, 予測需要: 355 },
-]
-
-const forecastCategories = ["全体", "アウター", "トップス", "ボトムス", "シューズ", "アクセサリー"] as const
-
-const buildCategoryForecast = (multiplier: number, variance: number) =>
-  salesForecastData.map((item, index) => {
-    const wobble = index % 3 === 0 ? variance : index % 3 === 1 ? -variance : 0
-    return {
-      month: item.month,
-      過去売上: Math.round(item.過去売上 * multiplier + wobble),
-      現在売上: Math.round(item.現在売上 * multiplier + wobble),
-      予測需要: Math.round(item.予測需要 * multiplier + wobble),
-    }
-  })
-
-const salesForecastByCategory: Record<(typeof forecastCategories)[number], typeof salesForecastData> = {
-  全体: salesForecastData,
-  アウター: buildCategoryForecast(0.92, 6),
-  トップス: buildCategoryForecast(1.05, 8),
-  ボトムス: buildCategoryForecast(0.98, 5),
-  シューズ: buildCategoryForecast(0.9, 4),
-  アクセサリー: buildCategoryForecast(0.88, 3),
-}
-
-const rotationLeaders = Array.from({ length: 100 }, (_, index) => {
-  const categories = ["トップス", "ボトムス", "アウター", "シューズ", "アクセサリー"]
-  const brands = ["UrbanLine", "BasicWear", "LuxeCoat", "DenimCo", "StepForward", "ClassicLeather", "KnitLab", "WinterStyle", "RunStudio", "DailyFit"]
-  const category = categories[index % categories.length]
-  const brand = brands[index % brands.length]
-  const rotation = Number((4.0 + (index % 20) * 0.1).toFixed(1))
-  const quantity = 120 + (index % 25) * 18
-  return { category, brand: `${brand} ${index + 1}`, rotation, quantity }
-})
-
-const categoryAging = [
-  { category: "アウター", days: 65, target: 75, status: "ok" as const },
-  { category: "トップス", days: 85, target: 70, status: "warn" as const },
-  { category: "アクセサリー", days: 55, target: 60, status: "ok" as const },
-  { category: "ボトムス", days: 98, target: 80, status: "alert" as const },
-]
-
 export function InventoryAIInsights() {
   const [goodPage, setGoodPage] = useState(1)
-  const [alertType, setAlertType] = useState<InventoryAlert["type"]>("low_stock")
+  const [alertType, setAlertType] = useState<InventoryAlertItem["type"]>("low_stock")
   const [alertPage, setAlertPage] = useState(1)
-  const [forecastCategory, setForecastCategory] = useState<(typeof forecastCategories)[number]>("全体")
+  const [forecastCategory, setForecastCategory] = useState<string>("全体")
+  const [compositionGroupBy, setCompositionGroupBy] = useState<"category" | "brand">("category")
 
+  const [compositionData, setCompositionData] = useState<SalesCompositionData | null>(null)
+  const [yearlyData, setYearlyData] = useState<YearlyComparisonData | null>(null)
+  const [turnoverData, setTurnoverData] = useState<StockTurnoverRow[]>([])
+  const [forecastData, setForecastData] = useState<SalesForecastData | null>(null)
+  const [rankingData, setRankingData] = useState<TurnoverRankingRow[]>([])
+  const [agingData, setAgingData] = useState<CategoryAgingRow[]>([])
+  const [alertData, setAlertData] = useState<InventoryAlertItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // 初回マウント時に全データを並行フェッチ
+  useEffect(() => {
+    Promise.allSettled([
+      getSalesCompositionAction("category"),
+      getYearlyComparisonAction(),
+      getStockTurnoverAction(),
+      getSalesForecastAction(null),
+      getTurnoverRankingAction(),
+      getCategoryAgingAction(),
+      getInventoryAlertAction(),
+    ])
+      .then(([comp, yearly, turnover, forecast, ranking, aging, alerts]) => {
+        if (comp.status === "fulfilled" && comp.value.success) setCompositionData(comp.value.data)
+        if (yearly.status === "fulfilled" && yearly.value.success) setYearlyData(yearly.value.data)
+        if (turnover.status === "fulfilled" && turnover.value.success) setTurnoverData(turnover.value.data)
+        if (forecast.status === "fulfilled" && forecast.value.success) setForecastData(forecast.value.data)
+        if (ranking.status === "fulfilled" && ranking.value.success) setRankingData(ranking.value.data)
+        if (aging.status === "fulfilled" && aging.value.success) setAgingData(aging.value.data)
+        if (alerts.status === "fulfilled" && alerts.value.success) setAlertData(alerts.value.data)
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  // カテゴリ別/ブランド別切り替え
+  useEffect(() => {
+    getSalesCompositionAction(compositionGroupBy).then((r) => {
+      if (r.success) setCompositionData(r.data)
+    })
+  }, [compositionGroupBy])
+
+  // 売上予測カテゴリ切り替え
+  useEffect(() => {
+    const cat = forecastCategory === "全体" ? null : forecastCategory
+    getSalesForecastAction(cat).then((r) => {
+      if (r.success)
+        setForecastData((prev) => (prev ? { ...prev, rows: r.data.rows } : r.data))
+    })
+  }, [forecastCategory])
+
+  // 予測需要をクライアント側で計算
+  const salesForecastWithPrediction = useMemo(() => {
+    if (!forecastData) return []
+    const known = forecastData.rows.filter((r) => r.現在売上 !== null)
+    const avgRatio =
+      known.length > 0
+        ? known.reduce(
+            (s, r) => s + (r.過去売上 > 0 ? r.現在売上! / r.過去売上 : 1),
+            0,
+          ) / known.length
+        : 1.05
+    return forecastData.rows.map((r) => ({
+      ...r,
+      予測需要:
+        r.現在売上 !== null ? r.現在売上 : Math.round(r.過去売上 * avgRatio),
+    }))
+  }, [forecastData])
+
+  // アラート集計
   const alertCounts = useMemo(
     () =>
-      alertsData.reduce(
+      alertData.reduce(
         (acc, alert) => {
-          acc[alert.type] += 1
+          acc[alert.type] = (acc[alert.type] ?? 0) + 1
           return acc
         },
-        { low_stock: 0, overstock: 0, expiring: 0 } as Record<InventoryAlert["type"], number>,
+        { low_stock: 0, overstock: 0, expiring: 0 } as Record<InventoryAlertItem["type"], number>,
       ),
-    [],
+    [alertData],
   )
 
-  const filteredAlerts = useMemo(() => alertsData.filter((alert) => alert.type === alertType), [alertType])
+  const filteredAlerts = useMemo(
+    () => alertData.filter((alert) => alert.type === alertType),
+    [alertData, alertType],
+  )
   const alertsPerPage = 12
   const alertTotalPages = Math.max(1, Math.ceil(filteredAlerts.length / alertsPerPage))
   const currentAlertPage = Math.min(alertPage, alertTotalPages)
@@ -249,11 +183,13 @@ export function InventoryAIInsights() {
   const pagedAlerts = filteredAlerts.slice(alertStart, alertEnd)
 
   const goodItemsPerPage = 8
-  const goodTotalPages = Math.max(1, Math.ceil(rotationLeaders.length / goodItemsPerPage))
+  const goodTotalPages = Math.max(1, Math.ceil(rankingData.length / goodItemsPerPage))
   const currentGoodPage = Math.min(goodPage, goodTotalPages)
   const goodStart = (currentGoodPage - 1) * goodItemsPerPage
   const goodEnd = goodStart + goodItemsPerPage
-  const pagedGoodItems = rotationLeaders.slice(goodStart, goodEnd)
+  const pagedGoodItems = rankingData.slice(goodStart, goodEnd)
+
+  const forecastCategoryOptions = ["全体", ...(forecastData?.availableCategories ?? [])]
 
   return (
     <div className="p-6">
@@ -266,41 +202,73 @@ export function InventoryAIInsights() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+        {/* 売上構成 */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="w-4 h-4 text-[#345fe1]" />
-              カテゴリ別売上構成
-            </CardTitle>
+          <CardHeader className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Package className="w-4 h-4 text-[#345fe1]" />
+                売上構成
+              </CardTitle>
+              <div className="flex gap-1">
+                {(["category", "brand"] as const).map((g) => (
+                  <Button
+                    key={g}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCompositionGroupBy(g)}
+                    className={cn(
+                      "h-6 px-2 rounded-full text-xs",
+                      compositionGroupBy === g
+                        ? "bg-[#345fe1] text-white border-transparent hover:bg-[#2a4bb3]"
+                        : "bg-white text-muted-foreground",
+                    )}
+                  >
+                    {g === "category" ? "カテゴリ別" : "ブランド別"}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="h-55">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categorySalesData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={renderCategoryLabel}
-                    labelLine={false}
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  >
-                    {categorySalesData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="h-56">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  読み込み中...
+                </div>
+              ) : !compositionData || compositionData.items.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  データがありません
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={compositionData.items}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={renderCategoryLabel}
+                      labelLine={false}
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    >
+                      {compositionData.items.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
 
+        {/* 前年比較 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -309,22 +277,35 @@ export function InventoryAIInsights() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-55">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyComparisonData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="month" stroke="#64748b" fontSize={10} />
-                  <YAxis stroke="#64748b" fontSize={10} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="昨年" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="今年" fill="#345fe1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="h-56 overflow-x-auto">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  読み込み中...
+                </div>
+              ) : !yearlyData || yearlyData.rows.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  データがありません
+                </div>
+              ) : (
+                <div style={{ minWidth: 600, height: "100%" }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={yearlyData.rows}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="month" stroke="#64748b" fontSize={10} />
+                      <YAxis stroke="#64748b" fontSize={10} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="昨年" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="今年" fill="#345fe1" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
+        {/* 在庫回転率 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -333,28 +314,39 @@ export function InventoryAIInsights() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-55">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stockTurnoverData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" stroke="#64748b" fontSize={10} />
-                  <YAxis dataKey="category" type="category" stroke="#64748b" fontSize={10} width={80} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="回転率" fill="#345fe1" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="目標" fill="#22c55e" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="h-56">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  読み込み中...
+                </div>
+              ) : turnoverData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  データがありません
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={turnoverData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis type="number" stroke="#64748b" fontSize={10} />
+                    <YAxis dataKey="category" type="category" stroke="#64748b" fontSize={10} width={80} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="回転率" fill="#345fe1" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="目標" fill="#22c55e" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* 売上推移 & 需要予測 */}
       <Card className="mb-6">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">売上推移 & 需要予測</CardTitle>
           <div className="flex flex-wrap gap-2">
-            {forecastCategories.map((category) => (
+            {forecastCategoryOptions.map((category) => (
               <Button
                 key={category}
                 variant="outline"
@@ -374,51 +366,62 @@ export function InventoryAIInsights() {
         </CardHeader>
         <CardContent>
           <div className="h-75">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={salesForecastByCategory[forecastCategory]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="過去売上"
-                  stroke="#94a3b8"
-                  strokeWidth={2}
-                  dot={{ fill: "#94a3b8" }}
-                  name="過去売上（昨年）"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="現在売上"
-                  stroke="#345fe1"
-                  strokeWidth={3}
-                  dot={{ fill: "#345fe1" }}
-                  name="現在売上（今年）"
-                  connectNulls={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="予測需要"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  dot={{ fill: "#22c55e" }}
-                  name="予測需要"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                読み込み中...
+              </div>
+            ) : salesForecastWithPrediction.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                データがありません
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={salesForecastWithPrediction}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#64748b" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#fff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="過去売上"
+                    stroke="#94a3b8"
+                    strokeWidth={2}
+                    dot={{ fill: "#94a3b8" }}
+                    name="過去売上（昨年）"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="現在売上"
+                    stroke="#345fe1"
+                    strokeWidth={3}
+                    dot={{ fill: "#345fe1" }}
+                    name="現在売上（今年）"
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="予測需要"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={{ fill: "#22c55e" }}
+                    name="予測需要"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </CardContent>
       </Card>
 
+      {/* 在庫効率分析 */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -431,17 +434,22 @@ export function InventoryAIInsights() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">優良在庫ランキング</p>
-                  <p className="text-xs text-muted-foreground">回転率の高い商品をランキング表示</p>
-                </div>
-                <Badge variant="outline" className="bg-muted/40">
-                  上位 {rotationLeaders.length} 件
-                </Badge>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">優良在庫ランキング</p>
+                <p className="text-xs text-muted-foreground">回転率の高い商品をランキング表示</p>
               </div>
+              <Badge variant="outline" className="bg-muted/40">
+                上位 {rankingData.length} 件
+              </Badge>
+            </div>
 
-              <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border">
+              {loading ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">読み込み中...</div>
+              ) : rankingData.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">データがありません</div>
+              ) : (
                 <table className="min-w-full text-sm">
                   <thead className="bg-muted/60">
                     <tr>
@@ -464,41 +472,47 @@ export function InventoryAIInsights() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              )}
+            </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span className="text-muted-foreground">
-                  {rotationLeaders.length === 0
-                    ? "0 件"
-                    : `${goodStart + 1}-${Math.min(goodEnd, rotationLeaders.length)} 件 / ${rotationLeaders.length} 件`}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <span className="text-muted-foreground">
+                {rankingData.length === 0
+                  ? "0 件"
+                  : `${goodStart + 1}-${Math.min(goodEnd, rankingData.length)} 件 / ${rankingData.length} 件`}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGoodPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentGoodPage === 1}
+                >
+                  前へ
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentGoodPage} / {goodTotalPages}
                 </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setGoodPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentGoodPage === 1}
-                  >
-                    前へ
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    {currentGoodPage} / {goodTotalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setGoodPage((prev) => Math.min(goodTotalPages, prev + 1))}
-                    disabled={currentGoodPage === goodTotalPages}
-                  >
-                    次へ
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGoodPage((prev) => Math.min(goodTotalPages, prev + 1))}
+                  disabled={currentGoodPage === goodTotalPages}
+                >
+                  次へ
+                </Button>
               </div>
+            </div>
 
-              <div className="p-4 border border-border rounded-lg">
-                <p className="text-xs text-muted-foreground mb-2">カテゴリ別 売り切り目標日数</p>
+            <div className="p-4 border border-border rounded-lg">
+              <p className="text-xs text-muted-foreground mb-2">カテゴリ別 売り切り目標日数</p>
+              {loading ? (
+                <div className="text-sm text-muted-foreground text-center py-2">読み込み中...</div>
+              ) : agingData.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-2">データがありません</div>
+              ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {categoryAging.map((cat, i) => (
+                  {agingData.map((cat, i) => (
                     <div
                       key={i}
                       className={cn(
@@ -509,15 +523,19 @@ export function InventoryAIInsights() {
                       )}
                     >
                       <p className="text-sm font-semibold">{cat.category}</p>
-                      <p className="text-xs text-muted-foreground">平均 {cat.days}日 / 目標 {cat.target}日</p>
+                      <p className="text-xs text-muted-foreground">
+                        平均 {cat.days}日 / 目標 {cat.target}日
+                      </p>
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* 在庫アラート分析 */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -572,7 +590,11 @@ export function InventoryAIInsights() {
                   </Badge>
                 </div>
                 <div className="space-y-2 max-h-105 overflow-auto p-3">
-                  {pagedAlerts.length === 0 ? (
+                  {loading ? (
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                      読み込み中...
+                    </div>
+                  ) : pagedAlerts.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
                       該当するアラートはありません
                     </div>

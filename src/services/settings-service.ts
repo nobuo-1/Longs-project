@@ -1,5 +1,10 @@
 import { prisma } from "@/src/lib/prisma"
 
+// ── システム設定キー定数 ────────────────────────────────────────────────────
+export const SYSTEM_SETTING_KEYS = {
+  INVENTORY_TURNOVER_PERIOD_MONTHS: "inventory_turnover_period_months",
+} as const
+
 export type CategoryDTO = {
   id: string
   name: string
@@ -29,6 +34,31 @@ export async function updateCategory(
     data: { name, sellThroughDays },
   })
   return { id: c.id, name: c.name, sellThroughDays: c.sellThroughDays }
+}
+
+// ── システム設定 ──────────────────────────────────────────────────────────────
+
+export async function getSystemSetting(key: string): Promise<string | null> {
+  const row = await prisma.systemSetting.findUnique({ where: { key } })
+  return row?.value ?? null
+}
+
+export async function setSystemSetting(key: string, value: string): Promise<void> {
+  await prisma.systemSetting.upsert({
+    where: { key },
+    update: { value },
+    create: { key, value },
+  })
+}
+
+export async function getInventoryTurnoverPeriodMonths(): Promise<number> {
+  const val = await getSystemSetting(SYSTEM_SETTING_KEYS.INVENTORY_TURNOVER_PERIOD_MONTHS)
+  const parsed = val ? Number(val) : NaN
+  return isNaN(parsed) ? 12 : parsed
+}
+
+export async function setInventoryTurnoverPeriodMonths(months: number): Promise<void> {
+  await setSystemSetting(SYSTEM_SETTING_KEYS.INVENTORY_TURNOVER_PERIOD_MONTHS, String(months))
 }
 
 export async function deleteCategory(
