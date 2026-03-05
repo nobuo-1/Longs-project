@@ -18,6 +18,18 @@ npx prisma studio     # Open Prisma Studio GUI
 
 Package manager is **pnpm**. Path alias `@/` maps to the project root.
 
+## インタラクティブ操作が必要な場合
+
+`prisma migrate dev` など TTY（インタラクティブな端末）を要求するコマンドは、Claude Code の実行環境では動作しない。
+このようなコマンドが必要になった場合は **自力で回避しようとせず、ユーザーに操作を返す**こと。
+
+具体的な手順：
+1. 実行すべきコマンドを明示してユーザーに伝える
+2. ユーザーが実行して完了を知らせてくれるのを待つ
+3. 完了後、作業を再開する
+
+**禁止事項**：インタラクティブ操作を回避するために、マイグレーションファイルを手書きして psql で直接適用したり、`_prisma_migrations` テーブルに手動でレコードを挿入したりしてはならない。
+
 ## Development Environment
 
 The project is set up for **VS Code Dev Containers** via `.devcontainer/` backed by `docker-compose.yml`. The Compose stack includes:

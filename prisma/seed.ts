@@ -439,6 +439,216 @@ async function main() {
     }
   }
   console.log("✓ Upserted gross_profit_fact (20 rows)")
+
+  // ============================================================
+  // ProductBrand 初期データ
+  // ============================================================
+  const brands = [
+    { brandCode: "BR01", name: "UrbanLine" },
+    { brandCode: "BR02", name: "LuxeCoat" },
+    { brandCode: "BR03", name: "ActiveGear" },
+    { brandCode: "BR04", name: "RelaxWear" },
+  ]
+
+  for (const brand of brands) {
+    await prisma.productBrand.upsert({
+      where: { name: brand.name },
+      update: { brandCode: brand.brandCode },
+      create: brand,
+    })
+    console.log(`✓ Upserted product brand: ${brand.brandCode} ${brand.name}`)
+  }
+
+  // ============================================================
+  // ProductCategory 初期データ
+  // ============================================================
+  const categories = [
+    { categoryCode: "IT01", name: "トップス" },
+    { categoryCode: "IT02", name: "アウター" },
+    { categoryCode: "IT03", name: "ボトムス" },
+    { categoryCode: "IT04", name: "小物" },
+    { categoryCode: "IT05", name: "BAG" },
+    { categoryCode: "IT06", name: "財布" },
+    { categoryCode: "IT07", name: "首" },
+    { categoryCode: "IT08", name: "ソックス" },
+    { categoryCode: "IT09", name: "アンダー" },
+  ]
+
+  for (const cat of categories) {
+    await prisma.productCategory.upsert({
+      where: { name: cat.name },
+      update: { categoryCode: cat.categoryCode, sellThroughDays: 60 },
+      create: { ...cat, sellThroughDays: 60 },
+    })
+    console.log(`✓ Upserted product category: ${cat.categoryCode} ${cat.name}`)
+  }
+
+  // ============================================================
+  // Warehouse（1件）
+  // ============================================================
+  const warehouseId = "eeee0001-0000-0000-0000-000000000001"
+  await prisma.warehouse.upsert({
+    where: { id: warehouseId },
+    update: {},
+    create: { id: warehouseId, name: "本社倉庫" },
+  })
+  console.log("✓ Upserted warehouse: 本社倉庫")
+
+  // ============================================================
+  // Products（4件）
+  // ============================================================
+  const brandUrbanLine = await prisma.productBrand.findUnique({ where: { name: "UrbanLine" } })
+  const brandLuxeCoat = await prisma.productBrand.findUnique({ where: { name: "LuxeCoat" } })
+  const brandActiveGear = await prisma.productBrand.findUnique({ where: { name: "ActiveGear" } })
+  const brandRelaxWear = await prisma.productBrand.findUnique({ where: { name: "RelaxWear" } })
+  const catTops = await prisma.productCategory.findUnique({ where: { name: "トップス" } })
+  const catOuter = await prisma.productCategory.findUnique({ where: { name: "アウター" } })
+  const catBottoms = await prisma.productCategory.findUnique({ where: { name: "ボトムス" } })
+
+  const productsData = [
+    {
+      productCode: "SKU001",
+      name: "リネンシャツ",
+      brandId: brandUrbanLine?.id ?? null,
+      categoryId: catTops?.id ?? null,
+      season: "SS",
+    },
+    {
+      productCode: "SKU005",
+      name: "ウールコート",
+      brandId: brandLuxeCoat?.id ?? null,
+      categoryId: catOuter?.id ?? null,
+      season: "AW",
+    },
+    {
+      productCode: "SKU003",
+      name: "デニムパンツ",
+      brandId: brandActiveGear?.id ?? null,
+      categoryId: catBottoms?.id ?? null,
+      season: null,
+    },
+    {
+      productCode: "SKU002",
+      name: "コットンポロシャツ",
+      brandId: brandRelaxWear?.id ?? null,
+      categoryId: catTops?.id ?? null,
+      season: "SS",
+    },
+  ]
+
+  for (const product of productsData) {
+    await prisma.product.upsert({
+      where: { productCode: product.productCode },
+      update: { name: product.name, brandId: product.brandId, categoryId: product.categoryId, season: product.season },
+      create: product,
+    })
+    console.log(`✓ Upserted product: ${product.productCode} ${product.name}`)
+  }
+
+  // 商品IDを取得
+  const productMap = new Map<string, string>()
+  for (const p of productsData) {
+    const found = await prisma.product.findUnique({ where: { productCode: p.productCode } })
+    if (found) productMap.set(p.productCode, found.id)
+  }
+
+  // ============================================================
+  // ProductVariants（14件）
+  // ============================================================
+  const variantsData = [
+    // リネンシャツ
+    { productCode: "SKU001", color: "ベージュ",   size: "S",  janCode: "4901234567890", priceYen: BigInt(8900) },
+    { productCode: "SKU001", color: "ベージュ",   size: "M",  janCode: "4901234567892", priceYen: BigInt(8900) },
+    { productCode: "SKU001", color: "ブルー",     size: "S",  janCode: "4901234567893", priceYen: BigInt(8900) },
+    { productCode: "SKU001", color: "ブルー",     size: "M",  janCode: "4901234567894", priceYen: BigInt(8900) },
+    // ウールコート
+    { productCode: "SKU005", color: "グレー",     size: "S",  janCode: "4901234567891", priceYen: BigInt(28000) },
+    { productCode: "SKU005", color: "グレー",     size: "M",  janCode: "4901234567895", priceYen: BigInt(28000) },
+    { productCode: "SKU005", color: "ブラック",   size: "S",  janCode: "4901234567896", priceYen: BigInt(28000) },
+    { productCode: "SKU005", color: "ブラック",   size: "M",  janCode: "4901234567897", priceYen: BigInt(28000) },
+    // デニムパンツ
+    { productCode: "SKU003", color: "インディゴ", size: "28", janCode: "4901234567898", priceYen: BigInt(9800) },
+    { productCode: "SKU003", color: "インディゴ", size: "30", janCode: "4901234567899", priceYen: BigInt(9800) },
+    { productCode: "SKU003", color: "ブラック",   size: "28", janCode: "4901234567900", priceYen: BigInt(9800) },
+    // コットンポロシャツ
+    { productCode: "SKU002", color: "ホワイト",   size: "S",  janCode: "4901234567901", priceYen: BigInt(5800) },
+    { productCode: "SKU002", color: "ホワイト",   size: "M",  janCode: "4901234567902", priceYen: BigInt(5800) },
+    { productCode: "SKU002", color: "ブラック",   size: "S",  janCode: "4901234567903", priceYen: BigInt(5800) },
+  ]
+
+  for (const variant of variantsData) {
+    const productId = productMap.get(variant.productCode)!
+    await prisma.productVariant.upsert({
+      where: { productId_color_size: { productId, color: variant.color, size: variant.size } },
+      update: { janCode: variant.janCode, priceYen: variant.priceYen },
+      create: { productId, color: variant.color, size: variant.size, janCode: variant.janCode, priceYen: variant.priceYen },
+    })
+    console.log(`✓ Upserted variant: ${variant.productCode} ${variant.color}/${variant.size} JAN:${variant.janCode}`)
+  }
+
+  // ============================================================
+  // InventorySnapshotFact（14件, period_ym=2024-02-01）
+  // ============================================================
+  // period_ym = 2025-01-01（DBの既存売上データを考慮した上で確実に正の推定在庫になる値を設定）
+  // closingQty = 2025-01-01以降の実際の売上合計 + 目標残在庫数
+  const snapshotPeriod = new Date("2025-01-01")
+  const snapshotImportId = "a1b2c3d4-0001-0001-0001-000000000001" // sales importのIDを流用
+  const snapshotsData = [
+    { id: "d0000001-0000-0000-0000-000000000001", janCode: "4901234567890", closingQty: 375  }, // sold_after=175, target=200
+    { id: "d0000001-0000-0000-0000-000000000002", janCode: "4901234567891", closingQty: 365  }, // sold_after=235, target=130
+    { id: "d0000001-0000-0000-0000-000000000003", janCode: "4901234567892", closingQty: 385  }, // sold_after=305, target=80
+    { id: "d0000001-0000-0000-0000-000000000004", janCode: "4901234567893", closingQty: 665  }, // sold_after=620, target=45
+    { id: "d0000001-0000-0000-0000-000000000005", janCode: "4901234567894", closingQty: 410  }, // sold_after=350, target=60
+    { id: "d0000001-0000-0000-0000-000000000006", janCode: "4901234567895", closingQty: 575  }, // sold_after=525, target=50
+    { id: "d0000001-0000-0000-0000-000000000007", janCode: "4901234567896", closingQty: 660  }, // sold_after=630, target=30
+    { id: "d0000001-0000-0000-0000-000000000008", janCode: "4901234567897", closingQty: 40   }, // sold_after=0,   target=40
+    { id: "d0000001-0000-0000-0000-000000000009", janCode: "4901234567898", closingQty: 55   }, // sold_after=0,   target=55
+    { id: "d0000001-0000-0000-0000-000000000010", janCode: "4901234567899", closingQty: 70   }, // sold_after=0,   target=70
+    { id: "d0000001-0000-0000-0000-000000000011", janCode: "4901234567900", closingQty: 25   }, // sold_after=0,   target=25
+    { id: "d0000001-0000-0000-0000-000000000012", janCode: "4901234567901", closingQty: 85   }, // sold_after=0,   target=85
+    { id: "d0000001-0000-0000-0000-000000000013", janCode: "4901234567902", closingQty: 90   }, // sold_after=0,   target=90
+    { id: "d0000001-0000-0000-0000-000000000014", janCode: "4901234567903", closingQty: 35   }, // sold_after=0,   target=35
+  ]
+
+  for (const snap of snapshotsData) {
+    await prisma.inventorySnapshotFact.upsert({
+      where: { id: snap.id },
+      update: { closingQty: snap.closingQty, periodYm: snapshotPeriod },
+      create: {
+        id: snap.id,
+        importId: snapshotImportId,
+        periodYm: snapshotPeriod,
+        janCode: snap.janCode,
+        closingQty: snap.closingQty,
+      },
+    })
+    console.log(`✓ Upserted snapshot: JAN:${snap.janCode} closingQty:${snap.closingQty}`)
+  }
+
+  // ============================================================
+  // InventoryStock（14件: 全バリアント × 本社倉庫）
+  // ============================================================
+  const stockOnHand: Record<string, number> = {
+    "4901234567890": 180, "4901234567891": 130, "4901234567892": 82,
+    "4901234567893": 47,  "4901234567894": 63,  "4901234567895": 52,
+    "4901234567896": 33,  "4901234567897": 42,  "4901234567898": 58,
+    "4901234567899": 72,  "4901234567900": 27,  "4901234567901": 88,
+    "4901234567902": 93,  "4901234567903": 37,
+  }
+  for (const variant of variantsData) {
+    const productId = productMap.get(variant.productCode)!
+    const found = await prisma.productVariant.findUnique({
+      where: { productId_color_size: { productId, color: variant.color, size: variant.size } },
+    })
+    if (!found) continue
+    const onHand = stockOnHand[variant.janCode] ?? 0
+    await prisma.inventoryStock.upsert({
+      where: { variantId_warehouseId: { variantId: found.id, warehouseId } },
+      update: { onHand },
+      create: { variantId: found.id, warehouseId, onHand },
+    })
+  }
+  console.log("✓ Upserted inventory stocks (14件)")
 }
 
 main()

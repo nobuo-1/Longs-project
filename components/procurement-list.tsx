@@ -1,12 +1,18 @@
 "use client"
 
-import { useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Trash2, ClipboardList } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { useProcurementList } from "@/hooks/use-procurement-list"
+import {
+  getProcurementListAction,
+  removeProcurementItemAction,
+  updateProcurementItemQtyAction,
+  clearProcurementListAction,
+  type ProcurementItemRow,
+} from "@/src/actions/inventory-actions"
 import { cn } from "@/lib/utils"
 
 const formatNumber = (value: number) => new Intl.NumberFormat("ja-JP").format(value)
@@ -15,13 +21,45 @@ const formatCurrency = (value: number) =>
   new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(value)
 
 export function ProcurementList() {
-  const { items, updateOrderQty, removeItem, clearItems } = useProcurementList()
+  const [listId, setListId] = useState<string | null>(null)
+  const [items, setItems] = useState<ProcurementItemRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    getProcurementListAction()
+      .then((result) => {
+        if (!("error" in result)) {
+          setListId(result.listId)
+          setItems(result.items)
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [])
 
   const totals = useMemo(() => {
     const totalOrderQty = items.reduce((acc, item) => acc + item.orderQty, 0)
-    const totalAmount = items.reduce((acc, item) => acc + item.orderQty * item.price, 0)
+    const totalAmount = items.reduce((acc, item) => acc + item.orderQty * (item.priceYen ?? 0), 0)
     return { totalOrderQty, totalAmount }
   }, [items])
+
+  const handleQtyChange = (itemId: string, qty: number) => {
+    setItems((prev) => prev.map((i) => (i.itemId === itemId ? { ...i, orderQty: qty } : i)))
+  }
+
+  const handleQtyBlur = (itemId: string, qty: number) => {
+    updateProcurementItemQtyAction(itemId, qty)
+  }
+
+  const handleRemove = async (itemId: string) => {
+    setItems((prev) => prev.filter((i) => i.itemId !== itemId))
+    await removeProcurementItemAction(itemId)
+  }
+
+  const handleClear = async () => {
+    setItems([])
+    await clearProcurementListAction()
+  }
 
   return (
     <div className="p-6">
@@ -36,8 +74,8 @@ export function ProcurementList() {
         </div>
         <Button
           variant="outline"
-          onClick={clearItems}
-          disabled={items.length === 0}
+          onClick={handleClear}
+          disabled={items.length === 0 || loading}
           className="text-[#345fe1] border-[#345fe1]"
         >
           すべてクリア
@@ -73,7 +111,11 @@ export function ProcurementList() {
           </Badge>
         </CardHeader>
         <CardContent>
-          {items.length === 0 ? (
+          {loading ? (
+            <div className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+              読み込み中...
+            </div>
+          ) : items.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
               仕入れ提案から「発注に追加」を押すと、ここに表示されます。
             </div>
@@ -95,26 +137,31 @@ export function ProcurementList() {
                 </thead>
                 <tbody>
                   {items.map((item) => (
-                    <tr key={item.id} className="border-t border-border/70">
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{item.id}</td>
+                    <tr key={item.itemId} className="border-t border-border/70">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{item.janCode ?? "-"}</td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-foreground">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.manufacturer}</p>
+                        <p className="font-medium text-foreground">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {[item.color, item.size].filter(Boolean).join(" / ")}
+                        </p>
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{item.category}</td>
-                      <td className="px-4 py-3 text-right font-medium">{item.currentStock}点</td>
-                      <td className="px-4 py-3 text-right font-bold text-[#345fe1]">{item.suggestedOrder}点</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{item.categoryName ?? "-"}</td>
+                      <td className="px-4 py-3 text-right font-medium">{item.estimatedStock}点</td>
+                      <td className="px-4 py-3 text-right font-bold text-[#345fe1]">
+                        {item.suggestedQty != null ? `${item.suggestedQty}点` : "-"}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <Input
                           type="number"
                           min={0}
                           value={item.orderQty}
-                          onChange={(e) => updateOrderQty(item.id, Number(e.target.value))}
+                          onChange={(e) => handleQtyChange(item.itemId, Number(e.target.value))}
+                          onBlur={(e) => handleQtyBlur(item.itemId, Number(e.target.value))}
                           className="w-24 text-right"
                         />
                       </td>
                       <td className="px-4 py-3 text-right font-semibold">
-                        {formatCurrency(item.orderQty * item.price)}
+                        {formatCurrency(item.orderQty * (item.priceYen ?? 0))}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <Badge
@@ -131,7 +178,12 @@ export function ProcurementList() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button variant="outline" size="sm" onClick={() => removeItem(item.id)} aria-label="削除">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRemove(item.itemId)}
+                          aria-label="削除"
+                        >
                           <Trash2 className="w-4 h-4 text-[#345fe1]" />
                         </Button>
                       </td>

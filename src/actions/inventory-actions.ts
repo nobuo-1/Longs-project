@@ -1,4 +1,57 @@
 "use server"
 
-// TODO: Phase 4 で実装
-// - getStockAction, updateStockAction, getWarehousesAction
+import { getInventoryCatalog } from "@/src/services/inventory-service"
+import {
+  getProcurementListForUser,
+  getOrCreateDraftList,
+  addProcurementItem,
+  removeProcurementItem,
+  updateProcurementItemQty,
+  clearProcurementList,
+} from "@/src/services/inventory-service"
+import { getSession } from "@/src/lib/auth"
+
+export type { CatalogVariantRow } from "@/src/services/inventory-service"
+export type { ProcurementItemRow } from "@/src/services/inventory-service"
+
+export async function getInventoryCatalogAction() {
+  return getInventoryCatalog()
+}
+
+export async function getProcurementListAction() {
+  const session = await getSession()
+  if (!session) return { error: "未ログインです" } as const
+  return getProcurementListForUser(session.userId)
+}
+
+export async function addProcurementItemAction(
+  variantId: string,
+  suggestedQty: number | null,
+  priceYen: number | null,
+  status: "high" | "overstock" | "normal",
+): Promise<{ itemId: string } | { error: string }> {
+  const session = await getSession()
+  if (!session) return { error: "未ログインです" }
+  const listId = await getOrCreateDraftList(session.userId)
+  const itemId = await addProcurementItem(listId, variantId, suggestedQty, priceYen, status)
+  return { itemId }
+}
+
+export async function removeProcurementItemAction(itemId: string): Promise<void | { error: string }> {
+  const session = await getSession()
+  if (!session) return { error: "未ログインです" }
+  await removeProcurementItem(itemId)
+}
+
+export async function updateProcurementItemQtyAction(itemId: string, qty: number): Promise<void | { error: string }> {
+  const session = await getSession()
+  if (!session) return { error: "未ログインです" }
+  await updateProcurementItemQty(itemId, qty)
+}
+
+export async function clearProcurementListAction(): Promise<void | { error: string }> {
+  const session = await getSession()
+  if (!session) return { error: "未ログインです" }
+  const listId = await getOrCreateDraftList(session.userId)
+  await clearProcurementList(listId)
+}

@@ -1,7 +1,13 @@
 "use client"
- 
-import { useState, useMemo } from "react"
-import { TrendingUp, AlertTriangle } from "lucide-react"
+
+import { useState, useMemo, useEffect } from "react"
+import { TrendingUp } from "lucide-react"
+import {
+  getInventoryCatalogAction,
+  getProcurementListAction,
+  addProcurementItemAction,
+  type CatalogVariantRow,
+} from "@/src/actions/inventory-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,167 +15,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { useProcurementList } from "@/hooks/use-procurement-list"
 
 interface InventoryAIProps {
   initialTab?: "recommendations" | "table" | "catalog"
 }
 
-type CatalogItem = {
-  id: string
-  name: string
-  category: string
-  brand: string
-  season: string
-  manufacturer: string
-  price: number
-  currentStock: number
-  suggestedOrder: number
-  status: "high" | "overstock" | "normal"
-  colors: string[]
-  sizes: string[]
-}
-
-const productCatalog: CatalogItem[] = [
-  {
-    id: "SKU001",
-    name: "春物ジャケット（ネイビー）",
-    category: "アウター",
-    brand: "Healthknit",
-    season: "SS",
-    manufacturer: "TOKYO BRAND",
-    price: 15800,
-    currentStock: 12,
-    suggestedOrder: 30,
-    status: "high" as const,
-    colors: ["ネイビー", "グレー", "ベージュ"],
-    sizes: ["S", "M", "L", "XL"],
-  },
-  {
-    id: "SKU002",
-    name: "コットンTシャツ（白）",
-    category: "ﾄｯﾌﾟｽ",
-    brand: "FILA",
-    season: "ALL",
-    manufacturer: "BASIC WEAR",
-    price: 3980,
-    currentStock: 45,
-    suggestedOrder: 60,
-    status: "high" as const,
-    colors: ["白", "黒", "グレー", "ネイビー"],
-    sizes: ["XS", "S", "M", "L", "XL"],
-  },
-  {
-    id: "SKU003",
-    name: "デニムパンツ（ブルー）",
-    category: "ﾎﾞﾄﾑ",
-    brand: "Healthknit",
-    season: "ALL",
-    manufacturer: "DENIM CO",
-    price: 8900,
-    currentStock: 35,
-    suggestedOrder: 25,
-    status: "overstock" as const,
-    colors: ["ライトブルー", "インディゴ", "ブラック"],
-    sizes: ["28", "30", "32", "34", "36"],
-  },
-  {
-    id: "SKU004",
-    name: "リネンシャツ（ベージュ）",
-    category: "ｼｬﾂ",
-    brand: "Healthknit",
-    season: "SS",
-    manufacturer: "SUMMER LINE",
-    price: 6800,
-    currentStock: 8,
-    suggestedOrder: 40,
-    status: "high" as const,
-    colors: ["ベージュ", "白", "ライトブルー"],
-    sizes: ["S", "M", "L", "XL"],
-  },
-  {
-    id: "SKU005",
-    name: "ウールコート（グレー）",
-    category: "ｱｳﾀｰ",
-    brand: "その他",
-    season: "AW",
-    manufacturer: "WINTER STYLE",
-    price: 29800,
-    currentStock: 28,
-    suggestedOrder: 10,
-    status: "overstock" as const,
-    colors: ["グレー", "ネイビー", "キャメル"],
-    sizes: ["S", "M", "L"],
-  },
-  {
-    id: "SKU006",
-    name: "スニーカー（白）",
-    category: "ｿｯｸｽ",
-    brand: "Reebok",
-    season: "ALL",
-    manufacturer: "STEP FORWARD",
-    price: 12800,
-    currentStock: 22,
-    suggestedOrder: 35,
-    status: "high" as const,
-    colors: ["白", "黒", "グレー"],
-    sizes: ["23", "24", "25", "26", "27", "28"],
-  },
-  {
-    id: "SKU007",
-    name: "レザーベルト（茶）",
-    category: "小物",
-    brand: "ｱｺﾓﾃﾞ",
-    season: "ALL",
-    manufacturer: "CLASSIC LEATHER",
-    price: 4500,
-    currentStock: 55,
-    suggestedOrder: 20,
-    status: "normal" as const,
-    colors: ["ブラウン", "ブラック"],
-    sizes: ["S", "M", "L"],
-  },
-  {
-    id: "SKU008",
-    name: "カシミアニット（グレー）",
-    category: "ﾄｯﾌﾟｽ",
-    brand: "Healthknit",
-    season: "AW",
-    manufacturer: "LUXURY KNIT",
-    price: 18500,
-    currentStock: 15,
-    suggestedOrder: 25,
-    status: "high" as const,
-    colors: ["グレー", "ネイビー", "ベージュ", "ブラック"],
-    sizes: ["S", "M", "L", "XL"],
-  },
-]
-
 export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps) {
-  const [catalogItems, setCatalogItems] = useState(productCatalog)
   const [recommendationPage, setRecommendationPage] = useState(1)
   const [catalogSearch, setCatalogSearch] = useState("")
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState("all")
   const [catalogBrandFilter, setCatalogBrandFilter] = useState("all")
   const [catalogSeasonFilter, setCatalogSeasonFilter] = useState("all")
-  const [catalogStatusFilter, setCatalogStatusFilter] = useState("all")
   const [catalogPage, setCatalogPage] = useState(1)
-  const { items: procurementItems, addItem, isItemAdded } = useProcurementList()
 
-  const filteredProducts = useMemo(() => catalogItems, [catalogItems])
+  // DB データ
+  const [variantCatalog, setVariantCatalog] = useState<CatalogVariantRow[]>([])
+  const [variantLoading, setVariantLoading] = useState(false)
+  const [addedVariantIds, setAddedVariantIds] = useState<Set<string>>(new Set())
 
-  const catalogCategories = useMemo(
-    () => Array.from(new Set(catalogItems.map((item) => item.category))),
-    [catalogItems],
-  )
-  const catalogBrands = useMemo(
-    () => Array.from(new Set(catalogItems.map((item) => item.brand || "その他"))),
-    [catalogItems],
-  )
+  useEffect(() => {
+    if (initialTab !== "catalog" && initialTab !== "recommendations") return
+    setVariantLoading(true)
+    getInventoryCatalogAction()
+      .then((rows) => setVariantCatalog(rows))
+      .catch(console.error)
+      .finally(() => setVariantLoading(false))
 
-  const updateCatalogItem = (id: string, updates: Partial<(typeof catalogItems)[number]>) => {
-    setCatalogItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)))
-  }
+    if (initialTab === "recommendations") {
+      getProcurementListAction().then((result) => {
+        if (!("error" in result)) {
+          setAddedVariantIds(new Set(result.items.map((i) => i.variantId)))
+        }
+      })
+    }
+  }, [initialTab])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("ja-JP", {
@@ -179,29 +58,15 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
     }).format(value)
   }
 
-  const calcRotation = (item: CatalogItem) => {
-    if (!item.currentStock) return 0
-    return item.suggestedOrder / item.currentStock
-  }
+  // 高需要アイテム（estimatedStock < 50）
+  const recommendationItems = useMemo(
+    () =>
+      variantCatalog
+        .filter((v) => v.estimatedStock < 50)
+        .sort((a, b) => a.estimatedStock - b.estimatedStock),
+    [variantCatalog],
+  )
 
-  const formatRotation = (value: number) => value.toFixed(1)
-
-  const handleAddToProcurement = (item: CatalogItem) => {
-    addItem({
-      id: item.id,
-      name: item.name,
-      category: item.category,
-      manufacturer: item.manufacturer,
-      currentStock: item.currentStock,
-      suggestedOrder: item.suggestedOrder,
-      status: item.status,
-      price: item.price,
-    })
-  }
-
-  const recommendationItems = useMemo(() => filteredProducts.filter((product) => product.status === "high"), [
-    filteredProducts,
-  ])
   const recommendationsPerPage = 8
   const recommendationTotalPages = Math.max(1, Math.ceil(recommendationItems.length / recommendationsPerPage))
   const currentRecommendationPage = Math.min(recommendationPage, recommendationTotalPages)
@@ -212,156 +77,88 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
   const recommendationRangeStart = recommendationCount === 0 ? 0 : recommendationStart + 1
   const recommendationRangeEnd = Math.min(recommendationEnd, recommendationCount)
 
-  const filteredCatalogItems = useMemo(() => {
-    return catalogItems.filter((item) => {
+  const handleAddToProcurement = async (variant: CatalogVariantRow) => {
+    const result = await addProcurementItemAction(variant.variantId, null, variant.priceYen, "high")
+    if (!("error" in result)) {
+      setAddedVariantIds((prev) => new Set([...prev, variant.variantId]))
+    }
+  }
+
+  // カタログタブ用フィルタリング
+  const variantCategories = useMemo(
+    () => Array.from(new Set(variantCatalog.map((v) => v.categoryName).filter(Boolean) as string[])),
+    [variantCatalog],
+  )
+  const variantBrands = useMemo(
+    () => Array.from(new Set(variantCatalog.map((v) => v.brandName).filter(Boolean) as string[])),
+    [variantCatalog],
+  )
+  const variantSeasons = useMemo(
+    () => Array.from(new Set(variantCatalog.map((v) => v.season).filter(Boolean) as string[])),
+    [variantCatalog],
+  )
+
+  const filteredVariants = useMemo(() => {
+    const q = catalogSearch.toLowerCase()
+    return variantCatalog.filter((v) => {
       const matchesSearch =
-        catalogSearch === "" ||
-        item.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
-        item.id.toLowerCase().includes(catalogSearch.toLowerCase()) ||
-        item.manufacturer.toLowerCase().includes(catalogSearch.toLowerCase()) ||
-        (item.brand || "").toLowerCase().includes(catalogSearch.toLowerCase())
-
-      const matchesCategory = catalogCategoryFilter === "all" || item.category === catalogCategoryFilter
-      const matchesBrand = catalogBrandFilter === "all" || (item.brand || "その他") === catalogBrandFilter
-      const matchesSeason = catalogSeasonFilter === "all" || item.season === catalogSeasonFilter
-      const matchesStatus = catalogStatusFilter === "all" || item.status === catalogStatusFilter
-
-      return matchesSearch && matchesCategory && matchesBrand && matchesSeason && matchesStatus
+        q === "" ||
+        (v.productName ?? "").toLowerCase().includes(q) ||
+        (v.janCode ?? "").toLowerCase().includes(q) ||
+        (v.brandName ?? "").toLowerCase().includes(q) ||
+        (v.categoryName ?? "").toLowerCase().includes(q) ||
+        (v.color ?? "").toLowerCase().includes(q) ||
+        (v.size ?? "").toLowerCase().includes(q)
+      const matchesCategory = catalogCategoryFilter === "all" || v.categoryName === catalogCategoryFilter
+      const matchesBrand = catalogBrandFilter === "all" || v.brandName === catalogBrandFilter
+      const matchesSeason = catalogSeasonFilter === "all" || v.season === catalogSeasonFilter
+      return matchesSearch && matchesCategory && matchesBrand && matchesSeason
     })
-  }, [catalogItems, catalogSearch, catalogCategoryFilter, catalogBrandFilter, catalogSeasonFilter, catalogStatusFilter])
+  }, [variantCatalog, catalogSearch, catalogCategoryFilter, catalogBrandFilter, catalogSeasonFilter])
 
   const catalogItemsPerPage = 20
-  const catalogTotalPages = Math.max(1, Math.ceil(filteredCatalogItems.length / catalogItemsPerPage))
+  const catalogTotalPages = Math.max(1, Math.ceil(filteredVariants.length / catalogItemsPerPage))
   const currentCatalogPage = Math.min(catalogPage, catalogTotalPages)
   const catalogStart = (currentCatalogPage - 1) * catalogItemsPerPage
   const catalogEnd = catalogStart + catalogItemsPerPage
-  const pagedCatalogItems = filteredCatalogItems.slice(catalogStart, catalogEnd)
-  const catalogRangeStart = filteredCatalogItems.length === 0 ? 0 : catalogStart + 1
-  const catalogRangeEnd = Math.min(catalogEnd, filteredCatalogItems.length)
+  const pagedVariants = filteredVariants.slice(catalogStart, catalogEnd)
+  const catalogRangeStart = filteredVariants.length === 0 ? 0 : catalogStart + 1
+  const catalogRangeEnd = Math.min(catalogEnd, filteredVariants.length)
 
-  const renderCatalogEditDialog = (product: CatalogItem, trigger: React.ReactNode) => (
+  const renderVariantEditDialog = (variant: CatalogVariantRow, trigger: React.ReactNode) => (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>商品編集</DialogTitle>
+          <DialogTitle>バリアント詳細</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">商品名</p>
-              <Input value={product.name} onChange={(e) => updateCatalogItem(product.id, { name: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">商品コード</p>
-              <Input value={product.id} disabled />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">メーカー</p>
-              <Input
-                value={product.manufacturer}
-                onChange={(e) => updateCatalogItem(product.id, { manufacturer: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">カテゴリ</p>
-              <Input
-                value={product.category}
-                onChange={(e) => updateCatalogItem(product.id, { category: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">ブランド</p>
-              <Input
-                value={product.brand}
-                onChange={(e) => updateCatalogItem(product.id, { brand: e.target.value })}
-              />
-            </div>
+        <div className="space-y-3 mt-4 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <p className="text-muted-foreground">JAN</p>
+            <p>{variant.janCode ?? "-"}</p>
           </div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">シーズン</p>
-              <Select
-                value={product.season}
-                onValueChange={(value: string) => updateCatalogItem(product.id, { season: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">ALL</SelectItem>
-                  <SelectItem value="SS">SS</SelectItem>
-                  <SelectItem value="AW">AW</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">価格</p>
-              <Input
-                type="number"
-                value={product.price}
-                onChange={(e) => updateCatalogItem(product.id, { price: Number(e.target.value) })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">現在庫</p>
-                <Input
-                  type="number"
-                  value={product.currentStock}
-                  onChange={(e) => updateCatalogItem(product.id, { currentStock: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">推奨発注</p>
-                <Input
-                  type="number"
-                  value={product.suggestedOrder}
-                  onChange={(e) => updateCatalogItem(product.id, { suggestedOrder: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">ステータス</p>
-              <Select
-                value={product.status}
-                onValueChange={(value: CatalogItem["status"]) => updateCatalogItem(product.id, { status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">高需要</SelectItem>
-                  <SelectItem value="overstock">過剰</SelectItem>
-                  <SelectItem value="normal">通常</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">カラー</p>
-              <Input
-                value={product.colors.join(", ")}
-                onChange={(e) =>
-                  updateCatalogItem(product.id, {
-                    colors: e.target.value.split(",").map((color) => color.trim()).filter(Boolean),
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">サイズ</p>
-              <Input
-                value={product.sizes.join(", ")}
-                onChange={(e) =>
-                  updateCatalogItem(product.id, {
-                    sizes: e.target.value.split(",").map((size) => size.trim()).filter(Boolean),
-                  })
-                }
-              />
-            </div>
-            <Button className="w-full bg-[#345fe1] hover:bg-[#2a4bb3] text-white">保存（ダミー）</Button>
+          <div className="grid grid-cols-2 gap-2">
+            <p className="text-muted-foreground">商品名</p>
+            <p>{variant.productName}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <p className="text-muted-foreground">カラー</p>
+            <p>{variant.color ?? "-"}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <p className="text-muted-foreground">サイズ</p>
+            <p>{variant.size ?? "-"}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <p className="text-muted-foreground">価格</p>
+            <p>{variant.priceYen != null ? formatCurrency(variant.priceYen) : "-"}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <p className="text-muted-foreground">推定在庫</p>
+            <p>{variant.estimatedStock}</p>
           </div>
         </div>
+        <Button className="w-full mt-4 bg-[#345fe1] hover:bg-[#2a4bb3] text-white">保存（ダミー）</Button>
       </DialogContent>
     </Dialog>
   )
@@ -372,16 +169,16 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base">商品一覧</CardTitle>
-            <p className="text-xs text-muted-foreground">1万件規模の在庫を表形式で管理できます。</p>
+            <p className="text-xs text-muted-foreground">SKU（商品×カラー×サイズ）粒度で在庫を管理できます。</p>
           </div>
           <Badge variant="outline" className="bg-muted/40">
-            {filteredCatalogItems.length} 件
+            {variantLoading ? "読み込み中..." : `${filteredVariants.length} 件`}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-55">
             <Input
-              placeholder="商品名 / JAN / ブランド / メーカー"
+              placeholder="商品名 / JAN / ブランド / カテゴリ / カラー / サイズ"
               value={catalogSearch}
               onChange={(e) => {
                 setCatalogSearch(e.target.value)
@@ -391,18 +188,18 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
           </div>
           <div className="flex flex-wrap items-center gap-2 ml-auto">
             <Select
-            value={catalogCategoryFilter}
-            onValueChange={(value: string) => {
-              setCatalogCategoryFilter(value)
-              setCatalogPage(1)
-            }}
+              value={catalogCategoryFilter}
+              onValueChange={(value: string) => {
+                setCatalogCategoryFilter(value)
+                setCatalogPage(1)
+              }}
             >
-            <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="カテゴリ" />
               </SelectTrigger>
               <SelectContent className="bg-white">
                 <SelectItem value="all">全カテゴリ</SelectItem>
-                {catalogCategories.map((cat) => (
+                {variantCategories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
                   </SelectItem>
@@ -410,18 +207,18 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
               </SelectContent>
             </Select>
             <Select
-            value={catalogBrandFilter}
-            onValueChange={(value: string) => {
-              setCatalogBrandFilter(value)
-              setCatalogPage(1)
-            }}
+              value={catalogBrandFilter}
+              onValueChange={(value: string) => {
+                setCatalogBrandFilter(value)
+                setCatalogPage(1)
+              }}
             >
-            <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="ブランド" />
               </SelectTrigger>
               <SelectContent className="bg-white">
                 <SelectItem value="all">全ブランド</SelectItem>
-                {catalogBrands.map((brand) => (
+                {variantBrands.map((brand) => (
                   <SelectItem key={brand} value={brand}>
                     {brand}
                   </SelectItem>
@@ -429,36 +226,22 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
               </SelectContent>
             </Select>
             <Select
-            value={catalogSeasonFilter}
-            onValueChange={(value: string) => {
-              setCatalogSeasonFilter(value)
-              setCatalogPage(1)
-            }}
+              value={catalogSeasonFilter}
+              onValueChange={(value: string) => {
+                setCatalogSeasonFilter(value)
+                setCatalogPage(1)
+              }}
             >
-            <SelectTrigger className="w-35">
+              <SelectTrigger className="w-35">
                 <SelectValue placeholder="シーズン" />
               </SelectTrigger>
               <SelectContent className="bg-white">
                 <SelectItem value="all">ALL</SelectItem>
-                <SelectItem value="SS">SS</SelectItem>
-                <SelectItem value="AW">AW</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-            value={catalogStatusFilter}
-            onValueChange={(value: string) => {
-              setCatalogStatusFilter(value)
-              setCatalogPage(1)
-            }}
-            >
-            <SelectTrigger className="w-37.5">
-                <SelectValue placeholder="ステータス" />
-              </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectItem value="all">全ステータス</SelectItem>
-                <SelectItem value="high">高需要</SelectItem>
-                <SelectItem value="overstock">過剰</SelectItem>
-                <SelectItem value="normal">通常</SelectItem>
+                {variantSeasons.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -471,53 +254,52 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
               <tr>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">JAN</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">商品名</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">メーカー</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">カラー</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">サイズ</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">ブランド</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">カテゴリ</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">シーズン</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">価格</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">在庫</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">推奨</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">推定在庫</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">状態</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">推奨発注</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">編集</th>
               </tr>
             </thead>
             <tbody>
-              {pagedCatalogItems.length === 0 ? (
+              {variantLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={12} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    読み込み中...
+                  </td>
+                </tr>
+              ) : pagedVariants.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     条件に一致する商品がありません。
                   </td>
                 </tr>
               ) : (
-                pagedCatalogItems.map((product) => (
-                  <tr key={product.id} className="border-t border-border/70">
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{product.id}</td>
-                    <td className="px-3 py-2">{product.name}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{product.manufacturer}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{product.brand}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{product.category}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{product.season}</td>
-                    <td className="px-3 py-2 text-right">{formatCurrency(product.price)}</td>
-                    <td className="px-3 py-2 text-right">{product.currentStock}</td>
-                    <td className="px-3 py-2 text-right">{product.suggestedOrder}</td>
-                    <td className="px-3 py-2">
-                      <Badge
-                        className={cn(
-                          "text-[11px]",
-                          product.status === "high"
-                            ? "bg-green-100 text-green-700"
-                            : product.status === "overstock"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-gray-100 text-gray-700",
-                        )}
-                      >
-                        {product.status === "high" ? "高需要" : product.status === "overstock" ? "過剰" : "通常"}
-                      </Badge>
-                    </td>
+                pagedVariants.map((variant) => (
+                  <tr key={variant.variantId} className="border-t border-border/70">
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.janCode ?? "-"}</td>
+                    <td className="px-3 py-2">{variant.productName}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.color ?? "-"}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.size ?? "-"}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.brandName ?? "-"}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.categoryName ?? "-"}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.season ?? "-"}</td>
                     <td className="px-3 py-2 text-right">
-                      {renderCatalogEditDialog(
-                        product,
+                      {variant.priceYen != null ? formatCurrency(variant.priceYen) : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-right">{variant.estimatedStock}</td>
+                    <td className="px-3 py-2">
+                      <Badge className="text-[11px] bg-gray-100 text-gray-700">通常</Badge>
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-muted-foreground">-</td>
+                    <td className="px-3 py-2 text-right">
+                      {renderVariantEditDialog(
+                        variant,
                         <Button size="sm" variant="outline">
                           編集
                         </Button>,
@@ -532,9 +314,9 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
           <span className="text-muted-foreground">
-            {filteredCatalogItems.length === 0
+            {filteredVariants.length === 0
               ? "0 件"
-              : `${catalogRangeStart}-${catalogRangeEnd} 件 / ${filteredCatalogItems.length} 件`}
+              : `${catalogRangeStart}-${catalogRangeEnd} 件 / ${filteredVariants.length} 件`}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -582,15 +364,12 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
                 <CardTitle className="text-base">仕入れ提案</CardTitle>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="bg-muted/40">
-                    提案 {recommendationCount} 件
-                  </Badge>
-                  <Badge variant="outline" className="bg-muted/40">
-                    仕入れリスト {procurementItems.length} 件
+                    提案 {variantLoading ? "..." : recommendationCount} 件
                   </Badge>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                高需要のみを抽出し、回転数（推定）や想定売上金額で仕入判断をサポートします。
+                推定在庫が50点未満の商品を高需要として抽出しています。
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -601,67 +380,55 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">JAN</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">商品</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">カテゴリ</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">現在庫</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">推定在庫</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">価格</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">推奨発注</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">回転数(推定)</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">想定売上</th>
                       <th className="text-center px-4 py-3 font-medium text-muted-foreground">ステータス</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">操作</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedRecommendations.length === 0 ? (
+                    {variantLoading ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                        <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                          読み込み中...
+                        </td>
+                      </tr>
+                    ) : pagedRecommendations.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
                           現在、提案対象の在庫はありません。
                         </td>
                       </tr>
                     ) : (
-                      pagedRecommendations.map((item) => {
-                        const isAdded = isItemAdded(item.id)
+                      pagedRecommendations.map((variant) => {
+                        const isAdded = addedVariantIds.has(variant.variantId)
                         return (
-                          <tr key={item.id} className="border-t border-border/70 hover:bg-muted/40">
-                            <td className="px-4 py-3 text-xs text-muted-foreground">{item.id}</td>
+                          <tr key={variant.variantId} className="border-t border-border/70 hover:bg-muted/40">
+                            <td className="px-4 py-3 text-xs text-muted-foreground">{variant.janCode ?? "-"}</td>
                             <td className="px-4 py-3">
-                              <p className="font-medium text-foreground">{item.name}</p>
-                              <p className="text-xs text-muted-foreground">{item.manufacturer}</p>
+                              <p className="font-medium text-foreground">{variant.productName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {[variant.color, variant.size].filter(Boolean).join(" / ")}
+                              </p>
                             </td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground">{item.category}</td>
-                            <td className="px-4 py-3 text-right font-medium">{item.currentStock}点</td>
-                            <td className="px-4 py-3 text-right font-bold text-[#345fe1]">{item.suggestedOrder}点</td>
-                            <td className="px-4 py-3 text-right text-muted-foreground">
-                              {formatRotation(calcRotation(item))} 回
+                            <td className="px-4 py-3 text-xs text-muted-foreground">{variant.categoryName ?? "-"}</td>
+                            <td className="px-4 py-3 text-right font-medium">{variant.estimatedStock}点</td>
+                            <td className="px-4 py-3 text-right">
+                              {variant.priceYen != null ? formatCurrency(variant.priceYen) : "-"}
                             </td>
-                            <td className="px-4 py-3 text-right font-semibold text-foreground">
-                              {formatCurrency(item.suggestedOrder * item.price)}
-                            </td>
+                            <td className="px-4 py-3 text-right text-xs text-muted-foreground">-</td>
                             <td className="px-4 py-3 text-center">
-                              <Badge
-                                className={cn(
-                                  "px-3 py-1",
-                                  item.status === "high"
-                                    ? "bg-green-100 text-green-700 hover:bg-green-100"
-                                    : "bg-red-100 text-red-700 hover:bg-red-100",
-                                )}
-                              >
-                                {item.status === "high" ? (
-                                  <>
-                                    <TrendingUp className="w-3 h-3 mr-1 text-[#345fe1]" />
-                                    高需要
-                                  </>
-                                ) : (
-                                  <>
-                                    <AlertTriangle className="w-3 h-3 mr-1 text-[#345fe1]" />
-                                    過剰在庫
-                                  </>
-                                )}
+                              <Badge className="px-3 py-1 bg-green-100 text-green-700 hover:bg-green-100">
+                                <TrendingUp className="w-3 h-3 mr-1 text-[#345fe1]" />
+                                高需要
                               </Badge>
                             </td>
                             <td className="px-4 py-3 text-right">
                               <Button
                                 size="sm"
                                 variant={isAdded ? "outline" : "default"}
-                                onClick={() => handleAddToProcurement(item)}
+                                onClick={() => handleAddToProcurement(variant)}
                                 disabled={isAdded}
                                 className={cn(
                                   isAdded
@@ -710,7 +477,6 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
               </div>
             </CardContent>
           </Card>
-
         </>
       )}
     </div>

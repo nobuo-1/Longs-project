@@ -4,6 +4,8 @@ import { parseSpreadsheet, getExtension, generateCsv } from "@/src/lib/csv-parse
 
 export type DisplayRow = Record<string, string | number> & { id: string }
 
+export type UnknownItemInfo = { itemCode: string; itemName: string }
+
 export type ImportResult = {
   importId: string
   rowsTotal: number
@@ -39,6 +41,47 @@ export type ImportHistoryDTO = {
 // ===== /data/import 向け =====
 
 /**
+ * SalesFact インポート前に、itemCode に対応する ProductCategory の存在チェック
+ * ProductCategory.categoryCode = itemCode でマッチング。存在しない itemCode を返す（追加確認ダイアログ用）
+ */
+export async function checkUnknownSalesItemCodes(
+  buffer: Buffer,
+  fileName: string,
+): Promise<{ unknownItems: UnknownItemInfo[] }> {
+  const ext = getExtension(fileName)
+  const parsedRows = parseSpreadsheet(buffer, ext)
+
+  // CSV行から unique (itemCode, itemName) ペアを収集
+  const itemMap = new Map<string, string>() // itemCode → itemName
+  for (const row of parsedRows) {
+    const itemCode = String(row["アイテムコード"] ?? "").trim()
+    const itemName = String(row["アイテム名"] ?? "").trim()
+    if (itemCode && !itemMap.has(itemCode)) {
+      itemMap.set(itemCode, itemName)
+    }
+  }
+
+  if (itemMap.size === 0) return { unknownItems: [] }
+
+  // itemCode を ProductCategory.categoryCode と照合
+  const itemCodes = [...itemMap.keys()]
+  const existing = await prisma.productCategory.findMany({
+    where: { categoryCode: { in: itemCodes }, deletedAt: null },
+    select: { categoryCode: true },
+  })
+  const existingCodes = new Set(existing.map((c) => c.categoryCode).filter(Boolean) as string[])
+
+  const unknownItems: UnknownItemInfo[] = []
+  for (const [itemCode, itemName] of itemMap) {
+    if (!existingCodes.has(itemCode)) {
+      unknownItems.push({ itemCode, itemName })
+    }
+  }
+
+  return { unknownItems }
+}
+
+/**
  * CSV/XLSXファイルをインポートする（二層構成: DataImportRow + ファクトテーブル）
  */
 export async function importData(
@@ -46,6 +89,7 @@ export async function importData(
   fileName: string,
   dataset: string,
   userId: string,
+  unknownItemHandling: "add" | "use_other" = "use_other",
 ): Promise<ImportResult> {
   const dbDataset = toImportDataset(dataset)
   const columnDefs = getColumnDefs(dataset)
@@ -184,6 +228,22 @@ export async function importData(
       }
     }
 
+    // 5-1. 商品マスタ自動 upsert（sales / inventory_snapshot のみ）
+    if (rowsSuccess > 0 && (dbDataset === "sales" || dbDataset === "inventory_snapshot")) {
+      try {
+        const { warnings: masterWarnings } = await upsertProductMaster(factRows, dbDataset, unknownItemHandling)
+        for (const msg of masterWarnings) {
+          issues.push({ level: "warning", message: msg, rowNumber: 0 })
+        }
+      } catch (e) {
+        issues.push({
+          level: "warning",
+          message: `商品マスタの更新に失敗しました: ${e instanceof Error ? e.message : String(e)}`,
+          rowNumber: 0,
+        })
+      }
+    }
+
     // 6. DataImportIssue 保存
     if (issues.length > 0) {
       await prisma.dataImportIssue.createMany({
@@ -255,7 +315,7 @@ export async function importData(
 
 /** ファクトテーブルへの bulk insert（dataset別） */
 async function insertFactRows(
-  dataset: "sales" | "payables" | "receivables" | "gross_profit",
+  dataset: "sales" | "payables" | "receivables" | "gross_profit" | "inventory_snapshot",
   rows: Record<string, unknown>[],
 ): Promise<{ count: number }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -269,7 +329,208 @@ async function insertFactRows(
       return prisma.receivablesFact.createMany({ data, skipDuplicates: true })
     case "gross_profit":
       return prisma.grossProfitFact.createMany({ data, skipDuplicates: true })
+    case "inventory_snapshot":
+      return prisma.inventorySnapshotFact.createMany({ data, skipDuplicates: true })
   }
+}
+
+/**
+ * SalesFact / InventorySnapshotFact のインポート行から Product / ProductVariant を自動 upsert する
+ * 戻り値の warnings は ImportResult.warnings に追記される
+ */
+async function upsertProductMaster(
+  factRows: Record<string, unknown>[],
+  dataset: "sales" | "inventory_snapshot",
+  unknownItemHandling: "add" | "use_other" = "use_other",
+): Promise<{ warnings: string[] }> {
+  const warnings: string[] = []
+
+  // productCode が存在する行のみ処理
+  const rows = factRows.filter((r) => r.productCode)
+
+  if (rows.length === 0) return { warnings }
+
+  // brandCode + brandName ごとに ProductBrand を upsert
+  // brandCode がある場合は brandCode 優先でルックアップ。ない場合は brandName で upsert
+  const brandPairMap = new Map<string, { brandCode?: string; brandName: string }>()
+  for (const r of rows) {
+    const brandName = r.brandName as string | undefined
+    if (!brandName) continue
+    const brandCode = (r.brandCode as string | undefined) || undefined
+    const key = `${brandCode ?? ""}|${brandName}`
+    if (!brandPairMap.has(key)) brandPairMap.set(key, { brandCode, brandName })
+  }
+
+  const brandMap = new Map<string, string>() // brandName → id
+  for (const { brandCode, brandName } of brandPairMap.values()) {
+    if (brandCode) {
+      // brandCode がある場合: brandCode でルックアップ
+      const existingByCode = await prisma.productBrand.findUnique({ where: { brandCode } })
+      if (existingByCode) {
+        if (existingByCode.name !== brandName) {
+          warnings.push(
+            `ブランドコード「${brandCode}」の名称「${brandName}」がマスタの「${existingByCode.name}」と一致しません。マスタの名称を使用しました。`,
+          )
+        }
+        brandMap.set(brandName, existingByCode.id)
+      } else {
+        // brandCode 未登録: 新規作成（name 衝突時は既存レコードを使用）
+        try {
+          const brand = await prisma.productBrand.create({ data: { brandCode, name: brandName } })
+          brandMap.set(brandName, brand.id)
+        } catch {
+          const existingByName = await prisma.productBrand.findUnique({ where: { name: brandName } })
+          if (existingByName) {
+            warnings.push(
+              `ブランド名「${brandName}」は既にコードなしで登録されています。ブランドコード「${brandCode}」の紐付けはスキップしました。`,
+            )
+            brandMap.set(brandName, existingByName.id)
+          }
+        }
+      }
+    } else {
+      // brandCode なし: brandName で upsert（従来どおり）
+      const brand = await prisma.productBrand.upsert({
+        where: { name: brandName },
+        create: { name: brandName },
+        update: {},
+      })
+      brandMap.set(brandName, brand.id)
+    }
+  }
+
+  // sales の場合: itemCode → ProductCategory.id のマッピングを構築
+  // ProductCategory.categoryCode = itemCode で紐付け
+  const productCategoryMap = new Map<string, string>() // productCode → categoryId
+  if (dataset === "sales") {
+    // ユニークな (itemCode, itemName) ペアを収集
+    const itemMap = new Map<string, string>() // itemCode → itemName
+    for (const r of rows) {
+      const itemCode = r.itemCode as string
+      const itemName = r.itemName as string
+      if (itemCode && !itemMap.has(itemCode)) itemMap.set(itemCode, itemName ?? "")
+    }
+
+    const uniqueItemCodes = [...itemMap.keys()]
+    if (uniqueItemCodes.length > 0) {
+      const existingCats = await prisma.productCategory.findMany({
+        where: { categoryCode: { in: uniqueItemCodes }, deletedAt: null },
+        select: { id: true, categoryCode: true, name: true },
+      })
+      // categoryCode → { id, name } マップ
+      const catCodeToInfo = new Map(existingCats.map((c) => [c.categoryCode as string, { id: c.id, name: c.name }]))
+
+      // (1) itemCode が存在するが itemName と categoryName が不一致 → 警告
+      for (const [itemCode, itemName] of itemMap) {
+        const cat = catCodeToInfo.get(itemCode)
+        if (cat && itemName && cat.name !== itemName) {
+          warnings.push(
+            `アイテムコード「${itemCode}」のアイテム名「${itemName}」がカテゴリ名「${cat.name}」と一致しません。` +
+              `Productへの登録にはカテゴリ「${cat.name}」を使用しました。`,
+          )
+        }
+      }
+
+      if (unknownItemHandling === "add") {
+        // 存在しない itemCode のカテゴリを新規作成（categoryCode = itemCode, name = itemName）
+        for (const [itemCode, itemName] of itemMap) {
+          if (!catCodeToInfo.has(itemCode)) {
+            const cat = await prisma.productCategory.create({
+              data: { categoryCode: itemCode, name: itemName || itemCode },
+            })
+            catCodeToInfo.set(itemCode, { id: cat.id, name: cat.name })
+          }
+        }
+      } else {
+        // 存在しない itemCode は「その他」カテゴリを使用
+        const missingCodes = uniqueItemCodes.filter((c) => !catCodeToInfo.has(c))
+        if (missingCodes.length > 0) {
+          const otherCat = await prisma.productCategory.upsert({
+            where: { name: "その他" },
+            create: { name: "その他" },
+            update: {},
+          })
+          for (const c of missingCodes) {
+            catCodeToInfo.set(c, { id: otherCat.id, name: otherCat.name })
+          }
+        }
+      }
+
+      // productCode → categoryId マッピング構築
+      for (const r of rows) {
+        const productCode = r.productCode as string
+        const itemCode = r.itemCode as string
+        if (productCode && itemCode && !productCategoryMap.has(productCode)) {
+          const catId = catCodeToInfo.get(itemCode)?.id
+          if (catId) productCategoryMap.set(productCode, catId)
+        }
+      }
+    }
+  }
+
+  // productCode ごとに Product を upsert
+  const productGroups = new Map<string, { name: string; brandId?: string; categoryId?: string }>()
+  for (const r of rows) {
+    const code = r.productCode as string
+    if (productGroups.has(code)) continue
+    const name =
+      dataset === "sales"
+        ? ((r.productName1 as string) ?? (r.productName2 as string) ?? code)
+        : ((r.productName as string) ?? code)
+    const brandName = r.brandName as string | undefined
+    const brandId = brandName ? brandMap.get(brandName) : undefined
+    const categoryId = productCategoryMap.get(code)
+    productGroups.set(code, { name, brandId, categoryId })
+  }
+
+  // productCode → product.id マッピングを収集
+  const productIdMap = new Map<string, string>() // productCode → product.id
+
+  for (const [productCode, { name, brandId, categoryId }] of productGroups) {
+    const product = await prisma.product.upsert({
+      where: { productCode },
+      create: { productCode, name, ...(brandId ? { brandId } : {}), ...(categoryId ? { categoryId } : {}) },
+      update: { name, ...(brandId ? { brandId } : {}), ...(categoryId ? { categoryId } : {}) },
+    })
+    productIdMap.set(productCode, product.id)
+  }
+
+  // (productId + color + size) ごとに ProductVariant を upsert
+  const variantGroups = new Map<
+    string,
+    { productCode: string; colorCode?: string; color: string | null; sizeCode?: string; size: string | null; janCode?: string }
+  >()
+  for (const r of rows) {
+    const productCode = r.productCode as string
+    const color = (r.cs1Name as string) || null
+    const size = (r.cs2Name as string) || null
+    const variantKey = `${productCode}|${color ?? ""}|${size ?? ""}`
+    if (variantGroups.has(variantKey)) continue
+    variantGroups.set(variantKey, {
+      productCode,
+      colorCode: (r.cs1Code as string) || undefined,
+      color,
+      sizeCode: (r.cs2Code as string) || undefined,
+      size,
+      janCode: (r.janCode as string) || undefined,
+    })
+  }
+
+  for (const [, data] of variantGroups) {
+    const productId = productIdMap.get(data.productCode)
+    if (!productId) continue
+    await prisma.productVariant.upsert({
+      where: { productId_color_size: { productId, color: data.color, size: data.size } },
+      create: { productId, color: data.color, size: data.size, colorCode: data.colorCode, sizeCode: data.sizeCode, janCode: data.janCode },
+      update: {
+        colorCode: data.colorCode,
+        sizeCode: data.sizeCode,
+        janCode: data.janCode,
+      },
+    })
+  }
+
+  return { warnings }
 }
 
 /** インポート履歴一覧（削除済み除く）*/
@@ -381,6 +642,15 @@ async function queryFactTable(
       ])
       return [rows as unknown as Record<string, unknown>[], total]
     }
+    case "inventory-snapshot":
+    case "inventory_snapshot": {
+      const where = buildInventorySnapshotWhere(keyword)
+      const [rows, total] = await Promise.all([
+        prisma.inventorySnapshotFact.findMany({ where, skip, take, orderBy: { updatedAt: "desc" } }),
+        prisma.inventorySnapshotFact.count({ where }),
+      ])
+      return [rows as unknown as Record<string, unknown>[], total]
+    }
     default:
       return [[], 0]
   }
@@ -438,6 +708,21 @@ function buildGrossProfitWhere(keyword: string) {
   }
 }
 
+function buildInventorySnapshotWhere(keyword: string) {
+  const base = { deletedAt: null }
+  if (!keyword) return base
+  return {
+    ...base,
+    OR: [
+      { productCode: { contains: keyword } },
+      { productName: { contains: keyword } },
+      { brandName: { contains: keyword } },
+      { cs1Name: { contains: keyword } },
+      { cs2Name: { contains: keyword } },
+    ],
+  }
+}
+
 /** 行の編集 */
 export async function updateDataRow(params: {
   dataset: string
@@ -472,6 +757,10 @@ async function updateFactRow(dataset: string, id: string, data: Record<string, u
     case "gross-profit":
     case "gross_profit":
       await prisma.grossProfitFact.update({ where: { id }, data })
+      break
+    case "inventory-snapshot":
+    case "inventory_snapshot":
+      await prisma.inventorySnapshotFact.update({ where: { id }, data })
       break
   }
 }

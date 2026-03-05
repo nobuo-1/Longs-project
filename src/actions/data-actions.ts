@@ -5,7 +5,7 @@ import * as dataService from "@/src/services/data-service"
 import { getExtension } from "@/src/lib/csv-parser"
 import { generateTemplateCsv } from "@/src/services/data-service"
 
-export type { ImportHistoryDTO, DisplayRow, ImportResult } from "@/src/services/data-service"
+export type { ImportHistoryDTO, DisplayRow, ImportResult, UnknownItemInfo } from "@/src/services/data-service"
 
 // ===== /data/import 向け =====
 
@@ -32,11 +32,32 @@ export async function importDataAction(formData: FormData): Promise<
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    const result = await dataService.importData(buffer, file.name, dataset, session.userId)
+    const rawHandling = formData.get("unknownItemHandling")
+    const unknownItemHandling = rawHandling === "add" ? "add" : "use_other"
+
+    const result = await dataService.importData(buffer, file.name, dataset, session.userId, unknownItemHandling)
     return { success: true, data: result }
   } catch (e) {
     console.error("[importDataAction]", e)
     return { success: false, error: "インポートに失敗しました" }
+  }
+}
+
+/** SalesFact インポート前に未登録の itemName を検出する */
+export async function checkUnknownItemCodesAction(formData: FormData): Promise<
+  { success: true; data: { unknownItems: dataService.UnknownItemInfo[] } } | { success: false; error: string }
+> {
+  try {
+    const file = formData.get("file") as File | null
+    if (!file) return { success: false, error: "ファイルが指定されていません" }
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const result = await dataService.checkUnknownSalesItemCodes(buffer, file.name)
+    return { success: true, data: result }
+  } catch (e) {
+    console.error("[checkUnknownItemCodesAction]", e)
+    return { success: false, error: "チェックに失敗しました" }
   }
 }
 

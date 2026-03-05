@@ -1,18 +1,20 @@
 "use client"
 
-import { useState } from "react"
-import { Calendar, Settings2, Wallet, Plus, Trash2 } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Calendar, Settings2, Wallet, Plus, Trash2, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
+import {
+  getCategoriesAction,
+  createCategoryAction,
+  updateCategoryAction,
+  deleteCategoryAction,
+} from "@/src/actions/settings-actions"
+import type { CategoryDTO } from "@/src/actions/settings-actions"
 
-const categoryDefaults = [
-  { id: "tops", name: "トップス", days: 60 },
-  { id: "bottoms", name: "ボトムス", days: 60 },
-  { id: "outer", name: "アウター", days: 90 },
-  { id: "accessories", name: "アクセサリー", days: 60 },
-]
+// ── 固定費・内部留保はローカル状態のまま ──────────────────────────────────
 
 const fixedCostDefaults = [
   { id: "rent", name: "家賃", amount: 980000, day: 25 },
@@ -28,10 +30,20 @@ const reserveDefaults = [
   { id: "expansion", name: "事業拡大", description: "新店舗・新事業への投資", percent: 10 },
 ]
 
+// ── カテゴリ編集用の行型（新規追加行は id が未定） ────────────────────────
+type DraftRow = { key: string; id?: string; name: string; sellThroughDays: number }
+
 export default function SettingsPage() {
-  const [categorySettings, setCategorySettings] = useState(categoryDefaults)
-  const [categoryDraft, setCategoryDraft] = useState(categoryDefaults)
+  // ── カテゴリ状態 ──────────────────────────────────────────────────────────
+  const [categories, setCategories] = useState<CategoryDTO[]>([])
+  const [categoryLoading, setCategoryLoading] = useState(true)
+  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [isCategoryEditing, setIsCategoryEditing] = useState(false)
+  const [draft, setDraft] = useState<DraftRow[]>([])
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
+  const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({})
+
+  // ── 固定費・内部留保状態 ──────────────────────────────────────────────────
   const [fixedCosts, setFixedCosts] = useState(fixedCostDefaults)
   const [fixedCostsDraft, setFixedCostsDraft] = useState(fixedCostDefaults)
   const [isFixedEditing, setIsFixedEditing] = useState(false)
@@ -39,60 +51,128 @@ export default function SettingsPage() {
   const [reserveDraft, setReserveDraft] = useState(reserveDefaults)
   const [isReserveEditing, setIsReserveEditing] = useState(false)
 
+  // ── カテゴリ取得 ──────────────────────────────────────────────────────────
+  const fetchCategories = useCallback(async () => {
+    setCategoryLoading(true)
+    setCategoryError(null)
+    const res = await getCategoriesAction()
+    if (res.success) {
+      setCategories(res.data)
+    } else {
+      setCategoryError(res.error)
+    }
+    setCategoryLoading(false)
+  }, [])
+
+  useEffect(() => {
+    fetchCategories()
+  }, [fetchCategories])
+
+  // ── カテゴリ編集開始 ──────────────────────────────────────────────────────
   const handleCategoryEdit = () => {
-    setCategoryDraft(categorySettings.map((item) => ({ ...item })))
+    setDraft(
+      categories.map((c) => ({ key: c.id, id: c.id, name: c.name, sellThroughDays: c.sellThroughDays })),
+    )
+    setDeleteErrors({})
     setIsCategoryEditing(true)
   }
 
-  const handleCategorySave = () => {
-    setCategorySettings(categoryDraft.map((item) => ({ ...item })))
-    setIsCategoryEditing(false)
-  }
-
   const handleCategoryCancel = () => {
-    setCategoryDraft(categorySettings.map((item) => ({ ...item })))
     setIsCategoryEditing(false)
+    setDraft([])
+    setDeleteErrors({})
   }
 
-  const handleFixedEdit = () => {
-    setFixedCostsDraft(fixedCosts.map((item) => ({ ...item })))
-    setIsFixedEditing(true)
+  // ── カテゴリ保存 ──────────────────────────────────────────────────────────
+  const handleCategorySave = async () => {
+    const errors: string[] = []
+    const updated: CategoryDTO[] = []
+
+    for (const row of draft) {
+      if (row.id) {
+        // 既存カテゴリ: 変更があれば更新
+        const original = categories.find((c) => c.id === row.id)
+        if (original && original.name === row.name && original.sellThroughDays === row.sellThroughDays) {
+          updated.push(original)
+          continue
+        }
+        setSavingIds((s) => new Set(s).add(row.key))
+        const res = await updateCategoryAction(row.id, row.name, row.sellThroughDays)
+        setSavingIds((s) => { const n = new Set(s); n.delete(row.key); return n })
+        if (res.success) {
+          updated.push(res.data)
+        } else {
+          errors.push(`「${row.name}」: ${res.error}`)
+          updated.push(original ?? { id: row.id, name: row.name, sellThroughDays: row.sellThroughDays })
+        }
+      } else {
+        // 新規カテゴリ
+        setSavingIds((s) => new Set(s).add(row.key))
+        const res = await createCategoryAction(row.name, row.sellThroughDays)
+        setSavingIds((s) => { const n = new Set(s); n.delete(row.key); return n })
+        if (res.success) {
+          updated.push(res.data)
+        } else {
+          errors.push(`「${row.name}」: ${res.error}`)
+        }
+      }
+    }
+
+    setCategories(updated)
+
+    if (errors.length > 0) {
+      setCategoryError(errors.join("\n"))
+    } else {
+      setCategoryError(null)
+      setIsCategoryEditing(false)
+      setDraft([])
+    }
   }
 
-  const handleFixedSave = () => {
-    setFixedCosts(fixedCostsDraft.map((item) => ({ ...item })))
-    setIsFixedEditing(false)
-  }
-
-  const handleFixedCancel = () => {
-    setFixedCostsDraft(fixedCosts.map((item) => ({ ...item })))
-    setIsFixedEditing(false)
-  }
-
-  const handleAddFixedCost = () => {
-    setFixedCostsDraft((prev) => [
+  // ── カテゴリ追加（ドラフト行） ────────────────────────────────────────────
+  const handleAddDraftRow = () => {
+    setDraft((prev) => [
       ...prev,
-      { id: `new-${Date.now()}`, name: "新規項目", amount: 0, day: 25 },
+      { key: `new-${Date.now()}`, name: "", sellThroughDays: 60 },
     ])
   }
 
-  const handleReserveEdit = () => {
-    setReserveDraft(reserveSettings.map((item) => ({ ...item })))
-    setIsReserveEditing(true)
+  // ── カテゴリ削除 ──────────────────────────────────────────────────────────
+  const handleDeleteCategory = async (row: DraftRow) => {
+    if (!row.id) {
+      // まだ保存されていない新規行はドラフトから除くだけ
+      setDraft((prev) => prev.filter((r) => r.key !== row.key))
+      return
+    }
+    setSavingIds((s) => new Set(s).add(row.key))
+    const res = await deleteCategoryAction(row.id)
+    setSavingIds((s) => { const n = new Set(s); n.delete(row.key); return n })
+    if (res.success) {
+      setDraft((prev) => prev.filter((r) => r.key !== row.key))
+      setCategories((prev) => prev.filter((c) => c.id !== row.id))
+      setDeleteErrors((prev) => { const n = { ...prev }; delete n[row.key]; return n })
+    } else {
+      setDeleteErrors((prev) => ({ ...prev, [row.key]: res.error ?? "削除に失敗しました" }))
+    }
   }
 
-  const handleReserveSave = () => {
-    setReserveSettings(reserveDraft.map((item) => ({ ...item })))
-    setIsReserveEditing(false)
+  // ── 固定費ハンドラ ────────────────────────────────────────────────────────
+  const handleFixedEdit = () => { setFixedCostsDraft(fixedCosts.map((i) => ({ ...i }))); setIsFixedEditing(true) }
+  const handleFixedSave = () => { setFixedCosts(fixedCostsDraft.map((i) => ({ ...i }))); setIsFixedEditing(false) }
+  const handleFixedCancel = () => { setFixedCostsDraft(fixedCosts.map((i) => ({ ...i }))); setIsFixedEditing(false) }
+  const handleAddFixedCost = () => {
+    setFixedCostsDraft((prev) => [...prev, { id: `new-${Date.now()}`, name: "新規項目", amount: 0, day: 25 }])
   }
 
-  const handleReserveCancel = () => {
-    setReserveDraft(reserveSettings.map((item) => ({ ...item })))
-    setIsReserveEditing(false)
-  }
+  // ── 内部留保ハンドラ ──────────────────────────────────────────────────────
+  const handleReserveEdit = () => { setReserveDraft(reserveSettings.map((i) => ({ ...i }))); setIsReserveEditing(true) }
+  const handleReserveSave = () => { setReserveSettings(reserveDraft.map((i) => ({ ...i }))); setIsReserveEditing(false) }
+  const handleReserveCancel = () => { setReserveDraft(reserveSettings.map((i) => ({ ...i }))); setIsReserveEditing(false) }
 
   const reserveView = isReserveEditing ? reserveDraft : reserveSettings
   const reserveTotal = reserveView.reduce((sum, item) => sum + item.percent, 0)
+
+  const displayRows = isCategoryEditing ? draft : categories.map((c) => ({ key: c.id, id: c.id, name: c.name, sellThroughDays: c.sellThroughDays }))
 
   return (
     <div className="flex-1 overflow-auto bg-white">
@@ -103,14 +183,9 @@ export default function SettingsPage() {
             <h1 className="text-2xl font-bold text-foreground">システム設定</h1>
             <p className="text-muted-foreground">カテゴリ別の売り切り期限など、基本設定を管理します。</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button className="gap-2">
-              <Settings2 className="w-4 h-4" />
-              設定を保存（ダミー）
-            </Button>
-          </div>
         </div>
 
+        {/* ── カテゴリ別 売り切り期限設定 ── */}
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -119,48 +194,113 @@ export default function SettingsPage() {
                 カテゴリ別 売り切り期限設定
               </CardTitle>
               <div className="flex items-center gap-2">
+                {isCategoryEditing && (
+                  <Button variant="outline" size="sm" onClick={handleAddDraftRow}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    カテゴリを追加
+                  </Button>
+                )}
                 {isCategoryEditing ? (
                   <>
                     <Button variant="outline" size="sm" onClick={handleCategoryCancel}>
                       キャンセル
                     </Button>
-                    <Button size="sm" className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white" onClick={handleCategorySave}>
+                    <Button
+                      size="sm"
+                      className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                      onClick={handleCategorySave}
+                      disabled={savingIds.size > 0}
+                    >
+                      {savingIds.size > 0 && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
                       保存
                     </Button>
                   </>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={handleCategoryEdit}>
+                  <Button variant="outline" size="sm" onClick={handleCategoryEdit} disabled={categoryLoading}>
                     編集
                   </Button>
                 )}
               </div>
             </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(isCategoryEditing ? categoryDraft : categorySettings).map((cat, index) => (
-              <div key={cat.id} className="p-3 border border-border rounded-lg space-y-2">
-                <p className="text-sm font-semibold">{cat.name}</p>
-                {isCategoryEditing ? (
-                  <Input
-                    type="number"
-                    value={categoryDraft[index].days}
-                    onChange={(e) =>
-                      setCategoryDraft((prev) =>
-                        prev.map((item, idx) =>
-                          idx === index ? { ...item, days: Number(e.target.value) } : item,
-                        ),
-                      )
-                    }
-                  />
-                ) : (
-                  <p className="text-lg font-bold text-foreground">{cat.days} 日</p>
-                )}
-                <p className="text-xs text-muted-foreground">売り切り目標日数</p>
+          <CardContent>
+            {categoryLoading ? (
+              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">読み込み中...</span>
               </div>
-            ))}
+            ) : (
+              <>
+                {categoryError && (
+                  <p className="text-xs text-red-500 mb-3 whitespace-pre-line">{categoryError}</p>
+                )}
+                {displayRows.length === 0 && !isCategoryEditing && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    カテゴリがありません。「編集」→「カテゴリを追加」から追加してください。
+                  </p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {displayRows.map((row) => (
+                    <div key={row.key} className="p-3 border border-border rounded-lg space-y-2">
+                      {isCategoryEditing ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="カテゴリ名"
+                              value={row.name}
+                              onChange={(e) =>
+                                setDraft((prev) =>
+                                  prev.map((r) => (r.key === row.key ? { ...r, name: e.target.value } : r)),
+                                )
+                              }
+                              className="flex-1 text-sm font-semibold"
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              disabled={savingIds.has(row.key)}
+                              onClick={() => handleDeleteCategory(row)}
+                            >
+                              {savingIds.has(row.key) ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              )}
+                            </Button>
+                          </div>
+                          {deleteErrors[row.key] && (
+                            <p className="text-xs text-red-500">{deleteErrors[row.key]}</p>
+                          )}
+                          <Input
+                            type="number"
+                            min={1}
+                            value={row.sellThroughDays}
+                            onChange={(e) =>
+                              setDraft((prev) =>
+                                prev.map((r) =>
+                                  r.key === row.key ? { ...r, sellThroughDays: Number(e.target.value) } : r,
+                                ),
+                              )
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">売り切り目標日数</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-semibold">{row.name}</p>
+                          <p className="text-lg font-bold text-foreground">{row.sellThroughDays} 日</p>
+                          <p className="text-xs text-muted-foreground">売り切り目標日数</p>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
+        {/* ── 固定費の設定 ── */}
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -263,6 +403,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* ── 内部留保の設定 ── */}
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">

@@ -20,10 +20,12 @@ import { dataSets } from "@/lib/data-sets"
 import { cn } from "@/lib/utils"
 import {
   importDataAction,
+  checkUnknownItemCodesAction,
   getImportHistoryByDatasetAction,
   downloadTemplateAction,
   type ImportHistoryDTO,
   type ImportResult,
+  type UnknownItemInfo,
 } from "@/src/actions/data-actions"
 
 type HistoryDialogState = {
@@ -31,6 +33,12 @@ type HistoryDialogState = {
   datasetName: string
   datasetDescription: string
   history: ImportHistoryDTO
+}
+
+type PendingImport = {
+  datasetName: string
+  targetId: string
+  file: File
 }
 
 const statusLabels: Record<string, string> = {
@@ -95,6 +103,9 @@ export function DataRegistration() {
     | null
   >(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [unknownItems, setUnknownItems] = useState<UnknownItemInfo[]>([])
+  const [categoryConfirmOpen, setCategoryConfirmOpen] = useState(false)
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
 
   const fetchHistory = async () => {
     const result = await getImportHistoryByDatasetAction()
@@ -117,28 +128,56 @@ export function DataRegistration() {
 
   const activeImportSet = importTargetId ? dataSets.find((s) => s.id === importTargetId) : null
 
-  const handleImportConfirm = async () => {
-    if (!importTargetId || !importFile) return
-    const datasetName = activeImportSet?.name ?? importTargetId
-    const targetId = importTargetId
+  const doImport = async (pending: PendingImport, handling: "add" | "use_other") => {
     setIsImporting(true)
-    setImportTargetId(null)
-
     try {
       const formData = new FormData()
-      formData.append("file", importFile)
-      formData.append("dataset", targetId)
+      formData.append("file", pending.file)
+      formData.append("dataset", pending.targetId)
+      formData.append("unknownItemHandling", handling)
       const actionResult = await importDataAction(formData)
       await fetchHistory()
       if (actionResult.success) {
-        setImportFeedback({ datasetName, result: actionResult.data })
+        setImportFeedback({ datasetName: pending.datasetName, result: actionResult.data })
       } else {
-        setImportFeedback({ datasetName, error: actionResult.error })
+        setImportFeedback({ datasetName: pending.datasetName, error: actionResult.error })
       }
     } finally {
       setIsImporting(false)
       setImportFile(null)
+      setPendingImport(null)
+      setUnknownItems([])
     }
+  }
+
+  const handleImportConfirm = async () => {
+    if (!importTargetId || !importFile) return
+    const datasetName = activeImportSet?.name ?? importTargetId
+    const targetId = importTargetId
+    const pending: PendingImport = { datasetName, targetId, file: importFile }
+    setImportTargetId(null)
+
+    // sales データの場合は未登録カテゴリをチェック
+    if (targetId === "sales") {
+      setIsImporting(true)
+      try {
+        const checkForm = new FormData()
+        checkForm.append("file", importFile)
+        const checkResult = await checkUnknownItemCodesAction(checkForm)
+        if (checkResult.success && checkResult.data.unknownItems.length > 0) {
+          setPendingImport(pending)
+          setUnknownItems(checkResult.data.unknownItems)
+          setCategoryConfirmOpen(true)
+          setIsImporting(false)
+          return
+        }
+      } catch {
+        // チェック失敗時はそのままインポート
+      }
+      setIsImporting(false)
+    }
+
+    await doImport(pending, "use_other")
   }
 
   const handleFileSelect = (file?: File | null) => {
@@ -481,6 +520,61 @@ export function DataRegistration() {
             </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* カテゴリ未登録確認ダイアログ */}
+      <Dialog
+        open={categoryConfirmOpen}
+        onOpenChange={(open: boolean) => {
+          if (!open) {
+            setCategoryConfirmOpen(false)
+            setPendingImport(null)
+            setUnknownItems([])
+            setImportFile(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>未登録カテゴリの確認</DialogTitle>
+            <DialogDescription>
+              以下のアイテムに対応するカテゴリが登録されていません。新規カテゴリとして追加しますか？
+              追加しない場合は「その他」カテゴリとして取り込まれます。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-52 overflow-y-auto rounded-md border border-border p-2 space-y-1">
+            {unknownItems.map((item) => (
+              <div key={item.itemCode} className="flex items-center gap-3 text-sm py-0.5">
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">{item.itemCode}</span>
+                <span className="text-foreground">{item.itemName || "（アイテム名なし）"}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              variant="outline"
+              disabled={isImporting}
+              onClick={async () => {
+                setCategoryConfirmOpen(false)
+                if (pendingImport) await doImport(pendingImport, "use_other")
+              }}
+            >
+              {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              「その他」として取込む
+            </Button>
+            <Button
+              className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+              disabled={isImporting}
+              onClick={async () => {
+                setCategoryConfirmOpen(false)
+                if (pendingImport) await doImport(pendingImport, "add")
+              }}
+            >
+              {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              カテゴリを追加して取込む
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

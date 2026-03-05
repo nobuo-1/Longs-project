@@ -16,6 +16,7 @@ enum ImportDataset {
   payables
   receivables
   gross_profit
+  inventory_snapshot
 
   @@map("import_dataset")
 }
@@ -104,10 +105,12 @@ model Session {
 // ============================================================
 
 model ProductCategory {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String   @unique
-  sellThroughDays Int      @default(60) @map("sell_through_days")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryCode    String?   @unique @map("category_code")
+  name            String    @unique
+  sellThroughDays Int       @default(60) @map("sell_through_days")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
 
   products Product[]
 
@@ -130,8 +133,9 @@ model ReservePolicy {
 // ============================================================
 
 model ProductBrand {
-  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name String @unique
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brandCode String? @unique @map("brand_code")
+  name      String  @unique
 
   products Product[]
 
@@ -139,16 +143,15 @@ model ProductBrand {
 }
 
 model Product {
-  jan          String   @id
-  sku          String?  @unique
-  name         String
-  categoryId   String?  @map("category_id") @db.Uuid
-  brandId      String?  @map("brand_id") @db.Uuid
-  season       String?
-  manufacturer String?
-  status       String?
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productCode String   @unique @map("product_code")
+  name        String
+  categoryId  String?  @map("category_id") @db.Uuid
+  brandId     String?  @map("brand_id") @db.Uuid
+  season      String?
+  status      String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
   category ProductCategory? @relation(fields: [categoryId], references: [id])
   brand    ProductBrand?     @relation(fields: [brandId], references: [id])
@@ -159,17 +162,20 @@ model Product {
 
 model ProductVariant {
   id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productJan String  @map("product_jan")
-  variantSku String? @unique @map("variant_sku")
+  productId  String  @map("product_id") @db.Uuid
+  variantSku String? @map("variant_sku")
   color      String?
+  colorCode  String? @map("color_code")
   size       String?
+  sizeCode   String? @map("size_code")
   janCode    String? @map("jan_code")
   priceYen   BigInt? @map("price_yen")
 
-  product          Product           @relation(fields: [productJan], references: [jan])
+  product          Product           @relation(fields: [productId], references: [id])
   inventoryStocks  InventoryStock[]
   procurementItems ProcurementItem[]
 
+  @@unique([productId, color, size])
   @@map("product_variant")
 }
 
@@ -259,6 +265,42 @@ model InventoryPlanMonth {
 
   @@unique([planYearId, monthDate])
   @@map("inventory_plan_month")
+}
+
+// ============================================================
+// 取引先マスタ
+// ============================================================
+
+model BusinessPartner {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  supplier Supplier?
+  customer Customer?
+
+  @@map("business_partner")
+}
+
+model Supplier {
+  businessPartnerId String   @id @map("business_partner_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  businessPartner BusinessPartner @relation(fields: [businessPartnerId], references: [id], onDelete: Cascade)
+
+  @@map("supplier")
+}
+
+model Customer {
+  businessPartnerId String   @id @map("business_partner_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  businessPartner BusinessPartner @relation(fields: [businessPartnerId], references: [id], onDelete: Cascade)
+
+  @@map("customer")
 }
 
 // ============================================================
@@ -355,13 +397,14 @@ model DataImport {
   warningsCount Int?          @map("warnings_count")
   errorsCount   Int?          @map("errors_count")
 
-  importer         UserAccount?      @relation(fields: [importedBy], references: [id])
-  rows             DataImportRow[]
-  issues           DataImportIssue[]
-  salesFacts       SalesFact[]
-  payablesFacts    PayablesFact[]
-  receivablesFacts ReceivablesFact[]
-  grossProfitFacts GrossProfitFact[]
+  importer               UserAccount?           @relation(fields: [importedBy], references: [id])
+  rows                   DataImportRow[]
+  issues                 DataImportIssue[]
+  salesFacts             SalesFact[]
+  payablesFacts          PayablesFact[]
+  receivablesFacts       ReceivablesFact[]
+  grossProfitFacts       GrossProfitFact[]
+  inventorySnapshotFacts InventorySnapshotFact[]
 
   @@index([dataset, importedAt(sort: Desc)])
   @@index([importedBy])
@@ -521,6 +564,32 @@ model GrossProfitFact {
   import DataImport? @relation(fields: [importId], references: [id])
 
   @@map("gross_profit_fact")
+}
+
+model InventorySnapshotFact {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  importId    String?   @map("import_id") @db.Uuid
+  periodYm    DateTime? @map("period_ym") @db.Date
+  productCode String?   @map("product_code")
+  productName String?   @map("product_name")
+  brandCode   String?   @map("brand_code")
+  brandName   String?   @map("brand_name")
+  cs1Code     String?   @map("cs1_code")
+  cs1Name     String?   @map("cs1_name")
+  cs2Code     String?   @map("cs2_code")
+  cs2Name     String?   @map("cs2_name")
+  janCode     String?   @map("jan_code")
+  openingQty  Int?      @map("opening_qty")
+  openingYen  BigInt?   @map("opening_yen")
+  closingQty  Int?      @map("closing_qty")
+  closingYen  BigInt?   @map("closing_yen")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+  import DataImport? @relation(fields: [importId], references: [id])
+
+  @@index([periodYm])
+  @@map("inventory_snapshot_fact")
 }
 
 // ============================================================

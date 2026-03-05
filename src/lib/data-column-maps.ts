@@ -204,22 +204,49 @@ export const grossProfitColumns: ColumnDef[] = [
   decimal("grossProfitRate", "粗利率(%)"),
 ]
 
+/** 在庫スナップショットデータ（14列） */
+export const inventorySnapshotColumns: ColumnDef[] = [
+  date("periodYm",     "基準年月"),
+  str("productCode",   "商品コード"),
+  str("productName",   "商品名"),
+  str("brandCode",     "ブランドコード"),
+  str("brandName",     "ブランド名"),
+  str("cs1Code",       "CS1コード"),
+  str("cs1Name",       "CS1名"),
+  str("cs2Code",       "CS2コード"),
+  str("cs2Name",       "CS2名"),
+  str("janCode",       "JANコード"),
+  int("openingQty",    "期首数量"),
+  bigint("openingYen", "期首金額"),
+  int("closingQty",    "期末数量"),
+  bigint("closingYen", "期末金額"),
+]
+
 /** dataset ID から ColumnDef[] を取得 */
 export function getColumnDefs(dataset: string): ColumnDef[] {
   switch (dataset) {
-    case "sales":        return salesColumns
-    case "payables":     return payablesColumns
-    case "receivables":  return receivablesColumns
+    case "sales":               return salesColumns
+    case "payables":            return payablesColumns
+    case "receivables":         return receivablesColumns
     case "gross-profit":
-    case "gross_profit": return grossProfitColumns
-    default:             return []
+    case "gross_profit":        return grossProfitColumns
+    case "inventory-snapshot":
+    case "inventory_snapshot":  return inventorySnapshotColumns
+    default:                    return []
   }
 }
 
 /** フロントのdataset ID → Prisma ImportDataset enum値 */
-export function toImportDataset(dataset: string): "sales" | "payables" | "receivables" | "gross_profit" {
+export function toImportDataset(dataset: string): "sales" | "payables" | "receivables" | "gross_profit" | "inventory_snapshot" {
   if (dataset === "gross-profit") return "gross_profit"
-  if (dataset === "sales" || dataset === "payables" || dataset === "receivables" || dataset === "gross_profit") {
+  if (dataset === "inventory-snapshot") return "inventory_snapshot"
+  if (
+    dataset === "sales" ||
+    dataset === "payables" ||
+    dataset === "receivables" ||
+    dataset === "gross_profit" ||
+    dataset === "inventory_snapshot"
+  ) {
     return dataset
   }
   throw new Error(`Unknown dataset: ${dataset}`)
@@ -228,5 +255,6 @@ export function toImportDataset(dataset: string): "sales" | "payables" | "receiv
 /** Prisma ImportDataset enum値 → フロントのdataset ID */
 export function fromImportDataset(dataset: string): string {
   if (dataset === "gross_profit") return "gross-profit"
+  if (dataset === "inventory_snapshot") return "inventory-snapshot"
   return dataset
 }

@@ -155,7 +155,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
               <Shirt className="w-6 h-6 text-white" />
             </div>
             <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-40 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75 min-h-10.5">
-              <h1 className="font-bold text-lg">アパレル管理</h1>
+              <h1 className="font-bold text-lg">Longs</h1>
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
           </div>
