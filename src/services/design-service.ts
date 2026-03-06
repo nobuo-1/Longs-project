@@ -84,9 +84,9 @@ export async function generateDesignImage(
 // 一覧取得
 // ============================================================
 
-export async function getDesignAssets(userId: string): Promise<DesignAssetDTO[]> {
+export async function getDesignAssets(_userId: string): Promise<DesignAssetDTO[]> {
   const assets = await prisma.designAsset.findMany({
-    where: { createdBy: userId, deletedAt: null },
+    where: { deletedAt: null },
     orderBy: { createdAt: "desc" },
   })
   return assets.map(toDTO)
