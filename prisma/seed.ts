@@ -512,6 +512,46 @@ async function main() {
   }
   console.log(`✓ アラートデモ商品 (${ALERT_SCENARIOS.length}商品)`)
 
+  // ── InventoryPlanYear & InventoryPlanMonth ───────────────────────────────────
+  const FY2024_ID = "cccc0001-0000-0000-0000-000000000001"
+  const FY2025_ID = "cccc0001-0000-0000-0000-000000000002"
+
+  await prisma.inventoryPlanYear.upsert({ where: { fiscalYear: 2024 }, update: {}, create: { id: FY2024_ID, fiscalYear: 2024 } })
+  await prisma.inventoryPlanYear.upsert({ where: { fiscalYear: 2025 }, update: {}, create: { id: FY2025_ID, fiscalYear: 2025 } })
+
+  await prisma.inventoryPlanMonth.deleteMany({ where: { planYearId: { in: [FY2024_ID, FY2025_ID] } } })
+  await prisma.inventoryPlanMonth.createMany({
+    data: [
+      // FY2024 (4月〜3月)
+      { planYearId: FY2024_ID, monthDate: new Date("2024-04-01"), purchaseBudgetYen: 3500000n, shipmentAmountYen: 4200000n, shipmentGrossProfitRate: 32.5, shipmentCostYen: 2835000n, wasteYen: 85000n,  monthEndInventoryYen: 8500000n, inventoryPlanYen: 8200000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-05-01"), purchaseBudgetYen: 4200000n, shipmentAmountYen: 5100000n, shipmentGrossProfitRate: 34.2, shipmentCostYen: 3356000n, wasteYen: 92000n,  monthEndInventoryYen: 9100000n, inventoryPlanYen: 9000000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-06-01"), purchaseBudgetYen: 3800000n, shipmentAmountYen: 4800000n, shipmentGrossProfitRate: 33.8, shipmentCostYen: 3178000n, wasteYen: 78000n,  monthEndInventoryYen: 8700000n, inventoryPlanYen: 8500000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-07-01"), purchaseBudgetYen: 5500000n, shipmentAmountYen: 6200000n, shipmentGrossProfitRate: 35.0, shipmentCostYen: 4030000n, wasteYen: 105000n, monthEndInventoryYen: 9500000n, inventoryPlanYen: 9800000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-08-01"), purchaseBudgetYen: 5800000n, shipmentAmountYen: 6800000n, shipmentGrossProfitRate: 36.2, shipmentCostYen: 4338000n, wasteYen: 115000n, monthEndInventoryYen: 9200000n, inventoryPlanYen: 9500000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-09-01"), purchaseBudgetYen: 4500000n, shipmentAmountYen: 5500000n, shipmentGrossProfitRate: 34.5, shipmentCostYen: 3603000n, wasteYen: 88000n,  monthEndInventoryYen: 8800000n, inventoryPlanYen: 8600000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-10-01"), purchaseBudgetYen: 4800000n, shipmentAmountYen: 5800000n, shipmentGrossProfitRate: 33.2, shipmentCostYen: 3875000n, wasteYen: 95000n,  monthEndInventoryYen: 9200000n, inventoryPlanYen: 9000000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-11-01"), purchaseBudgetYen: 5200000n, shipmentAmountYen: 6500000n, shipmentGrossProfitRate: 35.5, shipmentCostYen: 4193000n, wasteYen: 102000n, monthEndInventoryYen: 9600000n, inventoryPlanYen: 9800000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2024-12-01"), purchaseBudgetYen: 6500000n, shipmentAmountYen: 8200000n, shipmentGrossProfitRate: 38.0, shipmentCostYen: 5084000n, wasteYen: 135000n, monthEndInventoryYen: 8500000n, inventoryPlanYen: 8200000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2025-01-01"), purchaseBudgetYen: 3200000n, shipmentAmountYen: 3800000n, shipmentGrossProfitRate: 31.5, shipmentCostYen: 2603000n, wasteYen: 72000n,  monthEndInventoryYen: 8200000n, inventoryPlanYen: 8000000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2025-02-01"), purchaseBudgetYen: 3000000n, shipmentAmountYen: 3500000n, shipmentGrossProfitRate: 30.8, shipmentCostYen: 2422000n, wasteYen: 68000n,  monthEndInventoryYen: 7900000n, inventoryPlanYen: 7800000n },
+      { planYearId: FY2024_ID, monthDate: new Date("2025-03-01"), purchaseBudgetYen: 4000000n, shipmentAmountYen: 4500000n, shipmentGrossProfitRate: 32.0, shipmentCostYen: 3060000n, wasteYen: 82000n,  monthEndInventoryYen: 8400000n, inventoryPlanYen: 8200000n },
+      // FY2025 (4月〜3月、+5%成長)
+      { planYearId: FY2025_ID, monthDate: new Date("2025-04-01"), purchaseBudgetYen: 3700000n, shipmentAmountYen: 4400000n, shipmentGrossProfitRate: 33.0, shipmentCostYen: 2948000n, wasteYen: 89000n,  monthEndInventoryYen: 8900000n, inventoryPlanYen: 8600000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-05-01"), purchaseBudgetYen: 4400000n, shipmentAmountYen: 5400000n, shipmentGrossProfitRate: 34.5, shipmentCostYen: 3537000n, wasteYen: 96000n,  monthEndInventoryYen: 9600000n, inventoryPlanYen: 9400000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-06-01"), purchaseBudgetYen: 4000000n, shipmentAmountYen: 5000000n, shipmentGrossProfitRate: 34.0, shipmentCostYen: 3300000n, wasteYen: 82000n,  monthEndInventoryYen: 9100000n, inventoryPlanYen: 8900000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-07-01"), purchaseBudgetYen: 5800000n, shipmentAmountYen: 6500000n, shipmentGrossProfitRate: 35.5, shipmentCostYen: 4193000n, wasteYen: 110000n, monthEndInventoryYen: 9900000n, inventoryPlanYen: 10200000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-08-01"), purchaseBudgetYen: 6100000n, shipmentAmountYen: 7200000n, shipmentGrossProfitRate: 36.5, shipmentCostYen: 4572000n, wasteYen: 120000n, monthEndInventoryYen: 9700000n, inventoryPlanYen: 9900000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-09-01"), purchaseBudgetYen: 4800000n, shipmentAmountYen: 5800000n, shipmentGrossProfitRate: 35.0, shipmentCostYen: 3770000n, wasteYen: 92000n,  monthEndInventoryYen: 9200000n, inventoryPlanYen: 9000000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-10-01"), purchaseBudgetYen: 5000000n, shipmentAmountYen: 6100000n, shipmentGrossProfitRate: 33.5, shipmentCostYen: 4057000n, wasteYen: 99000n,  monthEndInventoryYen: 9700000n, inventoryPlanYen: 9500000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-11-01"), purchaseBudgetYen: 5500000n, shipmentAmountYen: 6800000n, shipmentGrossProfitRate: 36.0, shipmentCostYen: 4352000n, wasteYen: 107000n, monthEndInventoryYen: 10100000n, inventoryPlanYen: 10200000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2025-12-01"), purchaseBudgetYen: 6800000n, shipmentAmountYen: 8600000n, shipmentGrossProfitRate: 38.5, shipmentCostYen: 5291000n, wasteYen: 141000n, monthEndInventoryYen: 8900000n, inventoryPlanYen: 8600000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2026-01-01"), purchaseBudgetYen: 3400000n, shipmentAmountYen: 4000000n, shipmentGrossProfitRate: 32.0, shipmentCostYen: 2720000n, wasteYen: 76000n,  monthEndInventoryYen: 8600000n, inventoryPlanYen: 8400000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2026-02-01"), purchaseBudgetYen: 3100000n, shipmentAmountYen: 3700000n, shipmentGrossProfitRate: 31.2, shipmentCostYen: 2548000n, wasteYen: 71000n,  monthEndInventoryYen: 8300000n, inventoryPlanYen: 8200000n },
+      { planYearId: FY2025_ID, monthDate: new Date("2026-03-01"), purchaseBudgetYen: 4200000n, shipmentAmountYen: 4700000n, shipmentGrossProfitRate: 32.5, shipmentCostYen: 3173000n, wasteYen: 86000n,  monthEndInventoryYen: 8800000n, inventoryPlanYen: 8600000n },
+    ],
+  })
+  console.log(`✓ InventoryPlanYear & InventoryPlanMonth (2年度 × 12ヶ月)`)
+
   console.log("\n🎉 Seed complete!")
 }
 

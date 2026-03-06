@@ -52,7 +52,7 @@ const navItems = [
       { id: "inventory-insights", label: "在庫データ分析", icon: BarChart3, href: "/inventory/insights" },
       { id: "inventory-catalog", label: "商品一覧", icon: BookOpen, href: "/inventory/catalog" },
       { id: "inventory-planning", label: "在庫計画早見表", icon: BarChart3, href: "/inventory/planning" },
-      { id: "inventory-ai-advice", label: "AIアドバイス", icon: Bot, href: "/inventory/advice" },
+      { id: "inventory-ai-advice", label: "AIアドバイス(モック)", icon: Bot, href: "/inventory/advice" },
     ],
   },
   {

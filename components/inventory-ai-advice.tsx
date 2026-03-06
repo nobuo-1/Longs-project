@@ -357,7 +357,7 @@ export function InventoryAIAdvice() {
         <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory AI</p>
         <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Bot className="w-6 h-6 text-[#345fe1]" />
-          AIアドバイス
+          AIアドバイス(モック)
         </h2>
         <p className="text-muted-foreground">天気、気温、国際情勢などの幅広い視点からの週次アドバイス</p>
       </div>
