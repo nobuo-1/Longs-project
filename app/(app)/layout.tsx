@@ -3,6 +3,8 @@ import { getSession } from "@/src/lib/auth"
 import { AppShell } from "@/components/app-shell"
 import { SessionGuard } from "@/components/session-guard"
 
+export const dynamic = "force-dynamic"
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Server Componentでセッション検証（初回アクセス時・F5リロード時に実行）
   // - 絶対タイムアウト（7日）チェック

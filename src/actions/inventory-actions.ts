@@ -1,7 +1,9 @@
 "use server"
 
-import { getInventoryCatalog } from "@/src/services/inventory-service"
 import {
+  getInventoryCatalog,
+  updateProduct,
+  updateVariant,
   getProcurementListForUser,
   getOrCreateDraftList,
   addProcurementItem,
@@ -11,11 +13,33 @@ import {
 } from "@/src/services/inventory-service"
 import { getSession } from "@/src/lib/auth"
 
-export type { CatalogVariantRow } from "@/src/services/inventory-service"
+export type { CatalogVariantRow, CatalogResult, MasterItem } from "@/src/services/inventory-service"
 export type { ProcurementItemRow } from "@/src/services/inventory-service"
 
 export async function getInventoryCatalogAction() {
   return getInventoryCatalog()
+}
+
+export async function updateProductAction(
+  productId: string,
+  data: { name: string; brandName: string | null; categoryName: string | null; season: string | null },
+): Promise<{ error: string } | undefined> {
+  try {
+    await updateProduct(productId, data)
+  } catch {
+    return { error: "保存に失敗しました" }
+  }
+}
+
+export async function updateVariantAction(
+  variantId: string,
+  data: { color: string | null; size: string | null; janCode: string | null; priceYen: number | null },
+): Promise<{ error: string } | undefined> {
+  try {
+    await updateVariant(variantId, data)
+  } catch {
+    return { error: "保存に失敗しました" }
+  }
 }
 
 export async function getProcurementListAction() {

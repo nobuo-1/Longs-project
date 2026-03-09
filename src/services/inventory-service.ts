@@ -36,7 +36,13 @@ type RawRow = {
   estimatedStock: number
 }
 
-export async function getInventoryCatalog(): Promise<CatalogVariantRow[]> {
+export type CatalogResult = {
+  variants: CatalogVariantRow[]
+  categories: MasterItem[]
+  brands: MasterItem[]
+}
+
+export async function getInventoryCatalog(): Promise<CatalogResult> {
   const rows = await prisma.$queryRaw<RawRow[]>`
     SELECT
       pv.id::text                                          AS "variantId",
@@ -74,7 +80,12 @@ export async function getInventoryCatalog(): Promise<CatalogVariantRow[]> {
     ORDER BY p.name, pv.color, pv.size
   `
 
-  return rows.map((row) => ({
+  const [categories, brands] = await Promise.all([
+    getCategoryMaster(),
+    getBrandMaster(),
+  ])
+
+  const variants = rows.map((row) => ({
     variantId: row.variantId,
     productId: row.productId,
     productName: row.productName,
@@ -91,6 +102,71 @@ export async function getInventoryCatalog(): Promise<CatalogVariantRow[]> {
     soldSinceSnapshot: Number(row.soldSinceSnapshot),
     estimatedStock: row.estimatedStock,
   }))
+
+  return { variants, categories, brands }
+}
+
+// ============================================================
+// 商品・バリアント更新
+// ============================================================
+
+export async function updateProduct(
+  productId: string,
+  data: { name: string; brandName: string | null; categoryName: string | null; season: string | null },
+): Promise<void> {
+  const brand = data.brandName
+    ? await prisma.productBrand.findFirst({ where: { name: data.brandName }, select: { id: true } })
+    : null
+  const category = data.categoryName
+    ? await prisma.productCategory.findFirst({ where: { name: data.categoryName, deletedAt: null }, select: { id: true } })
+    : null
+  await prisma.product.update({
+    where: { id: productId },
+    data: {
+      name: data.name,
+      brandId: brand?.id ?? null,
+      categoryId: category?.id ?? null,
+      season: data.season || null,
+    },
+  })
+}
+
+export async function updateVariant(
+  variantId: string,
+  data: { color: string | null; size: string | null; janCode: string | null; priceYen: number | null },
+): Promise<void> {
+  await prisma.productVariant.update({
+    where: { id: variantId },
+    data: {
+      color: data.color || null,
+      size: data.size || null,
+      janCode: data.janCode || null,
+      priceYen: data.priceYen != null ? BigInt(data.priceYen) : null,
+    },
+  })
+}
+
+// ============================================================
+// マスタ取得
+// ============================================================
+
+export type MasterItem = { id: string; name: string }
+
+export async function getCategoryMaster(): Promise<MasterItem[]> {
+  const rows = await prisma.productCategory.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  })
+  return rows
+}
+
+export async function getBrandMaster(): Promise<MasterItem[]> {
+  const rows = await prisma.productBrand.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  })
+  return rows
 }
 
 // ============================================================

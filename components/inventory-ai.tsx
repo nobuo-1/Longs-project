@@ -1,12 +1,15 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { TrendingUp } from "lucide-react"
+import { TrendingUp, ChevronRight, ChevronDown } from "lucide-react"
 import {
   getInventoryCatalogAction,
+  updateProductAction,
+  updateVariantAction,
   getProcurementListAction,
   addProcurementItemAction,
   type CatalogVariantRow,
+  type MasterItem,
 } from "@/src/actions/inventory-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,17 +30,36 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
   const [catalogBrandFilter, setCatalogBrandFilter] = useState("all")
   const [catalogSeasonFilter, setCatalogSeasonFilter] = useState("all")
   const [catalogPage, setCatalogPage] = useState(1)
+  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(new Set())
+
+  // 商品編集
+  const [editingProduct, setEditingProduct] = useState<CatalogProductGroup | null>(null)
+  const [productForm, setProductForm] = useState({ name: "", brandName: "", categoryName: "", season: "" })
+  const [productSaving, setProductSaving] = useState(false)
+  const [productSaveError, setProductSaveError] = useState<string | null>(null)
+
+  // バリアント編集
+  const [editingVariant, setEditingVariant] = useState<CatalogVariantRow | null>(null)
+  const [variantForm, setVariantForm] = useState({ color: "", size: "", janCode: "", priceYen: "" })
+  const [variantSaving, setVariantSaving] = useState(false)
+  const [variantSaveError, setVariantSaveError] = useState<string | null>(null)
 
   // DB データ
   const [variantCatalog, setVariantCatalog] = useState<CatalogVariantRow[]>([])
   const [variantLoading, setVariantLoading] = useState(false)
   const [addedVariantIds, setAddedVariantIds] = useState<Set<string>>(new Set())
+  const [categoryMaster, setCategoryMaster] = useState<MasterItem[]>([])
+  const [brandMaster, setBrandMaster] = useState<MasterItem[]>([])
 
   useEffect(() => {
     if (initialTab !== "catalog" && initialTab !== "recommendations") return
     setVariantLoading(true)
     getInventoryCatalogAction()
-      .then((rows) => setVariantCatalog(rows))
+      .then(({ variants, categories, brands }) => {
+        setVariantCatalog(variants)
+        setCategoryMaster(categories)
+        setBrandMaster(brands)
+      })
       .catch(console.error)
       .finally(() => setVariantLoading(false))
 
@@ -116,49 +138,253 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
     })
   }, [variantCatalog, catalogSearch, catalogCategoryFilter, catalogBrandFilter, catalogSeasonFilter])
 
+  type CatalogProductGroup = {
+    productId: string
+    productName: string
+    productCode: string | null
+    season: string | null
+    brandName: string | null
+    categoryName: string | null
+    totalEstimatedStock: number
+    variants: CatalogVariantRow[]
+  }
+
+  const filteredProducts = useMemo<CatalogProductGroup[]>(() => {
+    const map = new Map<string, CatalogProductGroup>()
+    for (const v of filteredVariants) {
+      if (!map.has(v.productId)) {
+        map.set(v.productId, {
+          productId: v.productId,
+          productName: v.productName,
+          productCode: v.productCode,
+          season: v.season,
+          brandName: v.brandName,
+          categoryName: v.categoryName,
+          totalEstimatedStock: 0,
+          variants: [],
+        })
+      }
+      const p = map.get(v.productId)!
+      p.totalEstimatedStock += v.estimatedStock
+      p.variants.push(v)
+    }
+    return Array.from(map.values())
+  }, [filteredVariants])
+
+  const refreshCatalog = () => {
+    setVariantLoading(true)
+    getInventoryCatalogAction()
+      .then(({ variants, categories, brands }) => {
+        setVariantCatalog(variants)
+        setCategoryMaster(categories)
+        setBrandMaster(brands)
+      })
+      .catch(console.error)
+      .finally(() => setVariantLoading(false))
+  }
+
+  const openProductEdit = (product: CatalogProductGroup) => {
+    setProductSaveError(null)
+    setProductForm({
+      name: product.productName,
+      brandName: product.brandName ?? "",
+      categoryName: product.categoryName ?? "",
+      season: product.season ?? "",
+    })
+    setEditingProduct(product)
+  }
+
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return
+    setProductSaving(true)
+    setProductSaveError(null)
+    const result = await updateProductAction(editingProduct.productId, {
+      name: productForm.name,
+      brandName: productForm.brandName || null,
+      categoryName: productForm.categoryName || null,
+      season: productForm.season || null,
+    })
+    setProductSaving(false)
+    if (result?.error) {
+      setProductSaveError(result.error)
+      return
+    }
+    setEditingProduct(null)
+    refreshCatalog()
+  }
+
+  const openVariantEdit = (variant: CatalogVariantRow) => {
+    setVariantSaveError(null)
+    setVariantForm({
+      color: variant.color ?? "",
+      size: variant.size ?? "",
+      janCode: variant.janCode ?? "",
+      priceYen: variant.priceYen != null ? String(variant.priceYen) : "",
+    })
+    setEditingVariant(variant)
+  }
+
+  const handleSaveVariant = async () => {
+    if (!editingVariant) return
+    setVariantSaving(true)
+    setVariantSaveError(null)
+    const result = await updateVariantAction(editingVariant.variantId, {
+      color: variantForm.color || null,
+      size: variantForm.size || null,
+      janCode: variantForm.janCode || null,
+      priceYen: variantForm.priceYen !== "" ? Number(variantForm.priceYen) : null,
+    })
+    setVariantSaving(false)
+    if (result?.error) {
+      setVariantSaveError(result.error)
+      return
+    }
+    setEditingVariant(null)
+    refreshCatalog()
+  }
+
+  const toggleProduct = (productId: string) => {
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(productId)) next.delete(productId)
+      else next.add(productId)
+      return next
+    })
+  }
+
   const catalogItemsPerPage = 20
-  const catalogTotalPages = Math.max(1, Math.ceil(filteredVariants.length / catalogItemsPerPage))
+  const catalogTotalPages = Math.max(1, Math.ceil(filteredProducts.length / catalogItemsPerPage))
   const currentCatalogPage = Math.min(catalogPage, catalogTotalPages)
   const catalogStart = (currentCatalogPage - 1) * catalogItemsPerPage
   const catalogEnd = catalogStart + catalogItemsPerPage
-  const pagedVariants = filteredVariants.slice(catalogStart, catalogEnd)
-  const catalogRangeStart = filteredVariants.length === 0 ? 0 : catalogStart + 1
-  const catalogRangeEnd = Math.min(catalogEnd, filteredVariants.length)
+  const pagedProducts = filteredProducts.slice(catalogStart, catalogEnd)
+  const catalogRangeStart = filteredProducts.length === 0 ? 0 : catalogStart + 1
+  const catalogRangeEnd = Math.min(catalogEnd, filteredProducts.length)
 
-  const renderVariantEditDialog = (variant: CatalogVariantRow, trigger: React.ReactNode) => (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+  const productEditDialog = (
+    <Dialog open={editingProduct !== null} onOpenChange={(open) => !open && setEditingProduct(null)}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>バリアント詳細</DialogTitle>
+          <DialogTitle>商品編集</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 mt-4 text-sm">
-          <div className="grid grid-cols-2 gap-2">
-            <p className="text-muted-foreground">JAN</p>
-            <p>{variant.janCode ?? "-"}</p>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">商品名</label>
+            <Input
+              value={productForm.name}
+              onChange={(e) => setProductForm((p) => ({ ...p, name: e.target.value }))}
+            />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <p className="text-muted-foreground">商品名</p>
-            <p>{variant.productName}</p>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">ブランド</label>
+            <Select
+              value={productForm.brandName}
+              onValueChange={(v) => setProductForm((p) => ({ ...p, brandName: v }))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="ブランドを選択" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                {brandMaster.map((b) => (
+                  <SelectItem key={b.id} value={b.name}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <p className="text-muted-foreground">カラー</p>
-            <p>{variant.color ?? "-"}</p>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">カテゴリ</label>
+            <Select
+              value={productForm.categoryName}
+              onValueChange={(v) => setProductForm((p) => ({ ...p, categoryName: v }))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="カテゴリを選択" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                {categoryMaster.map((c) => (
+                  <SelectItem key={c.id} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <p className="text-muted-foreground">サイズ</p>
-            <p>{variant.size ?? "-"}</p>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">シーズン</label>
+            <Select
+              value={productForm.season}
+              onValueChange={(v) => setProductForm((p) => ({ ...p, season: v }))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="シーズン" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="SS">SS</SelectItem>
+                <SelectItem value="AW">AW</SelectItem>
+                <SelectItem value="ALL">ALL</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <p className="text-muted-foreground">価格</p>
-            <p>{variant.priceYen != null ? formatCurrency(variant.priceYen) : "-"}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <p className="text-muted-foreground">推定在庫</p>
-            <p>{variant.estimatedStock}</p>
-          </div>
+          {productSaveError && <p className="text-xs text-red-500">{productSaveError}</p>}
         </div>
-        <Button className="w-full mt-4 bg-[#345fe1] hover:bg-[#2a4bb3] text-white">保存（ダミー）</Button>
+        <Button
+          className="w-full mt-4 bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+          onClick={handleSaveProduct}
+          disabled={productSaving}
+        >
+          {productSaving ? "保存中..." : "保存"}
+        </Button>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const variantEditDialog = (
+    <Dialog open={editingVariant !== null} onOpenChange={(open) => !open && setEditingVariant(null)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>SKU編集</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 mt-4 text-sm">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">カラー</label>
+            <Input
+              value={variantForm.color}
+              onChange={(e) => setVariantForm((v) => ({ ...v, color: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">サイズ</label>
+            <Input
+              value={variantForm.size}
+              onChange={(e) => setVariantForm((v) => ({ ...v, size: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">JAN</label>
+            <Input
+              value={variantForm.janCode}
+              onChange={(e) => setVariantForm((v) => ({ ...v, janCode: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">価格（円）</label>
+            <Input
+              type="number"
+              value={variantForm.priceYen}
+              onChange={(e) => setVariantForm((v) => ({ ...v, priceYen: e.target.value }))}
+            />
+          </div>
+          {variantSaveError && <p className="text-xs text-red-500">{variantSaveError}</p>}
+        </div>
+        <Button
+          className="w-full mt-4 bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+          onClick={handleSaveVariant}
+          disabled={variantSaving}
+        >
+          {variantSaving ? "保存中..." : "保存"}
+        </Button>
       </DialogContent>
     </Dialog>
   )
@@ -169,10 +395,10 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base">商品一覧</CardTitle>
-            <p className="text-xs text-muted-foreground">SKU（商品×カラー×サイズ）粒度で在庫を管理できます。</p>
+            <p className="text-xs text-muted-foreground">商品単位で表示します。▶ をクリックするとSKUを展開できます。</p>
           </div>
           <Badge variant="outline" className="bg-muted/40">
-            {variantLoading ? "読み込み中..." : `${filteredVariants.length} 件`}
+            {variantLoading ? "読み込み中..." : `${filteredProducts.length} 商品 / ${filteredVariants.length} SKU`}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -236,7 +462,7 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
                 <SelectValue placeholder="シーズン" />
               </SelectTrigger>
               <SelectContent className="bg-white">
-                <SelectItem value="all">ALL</SelectItem>
+                <SelectItem value="all">全シーズン</SelectItem>
                 {variantSeasons.map((s) => (
                   <SelectItem key={s} value={s}>
                     {s}
@@ -252,61 +478,93 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
           <table className="min-w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">JAN</th>
+                <th className="px-3 py-2 w-8"></th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">商品名</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">カラー</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">サイズ</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">ブランド</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">カテゴリ</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">シーズン</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">SKU数</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">価格</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">推定在庫</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">状態</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">推奨発注</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">編集</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {variantLoading ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     読み込み中...
                   </td>
                 </tr>
-              ) : pagedVariants.length === 0 ? (
+              ) : pagedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     条件に一致する商品がありません。
                   </td>
                 </tr>
               ) : (
-                pagedVariants.map((variant) => (
-                  <tr key={variant.variantId} className="border-t border-border/70">
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.janCode ?? "-"}</td>
-                    <td className="px-3 py-2">{variant.productName}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.color ?? "-"}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.size ?? "-"}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.brandName ?? "-"}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.categoryName ?? "-"}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{variant.season ?? "-"}</td>
-                    <td className="px-3 py-2 text-right">
-                      {variant.priceYen != null ? formatCurrency(variant.priceYen) : "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right">{variant.estimatedStock}</td>
-                    <td className="px-3 py-2">
-                      <Badge className="text-[11px] bg-gray-100 text-gray-700">通常</Badge>
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs text-muted-foreground">-</td>
-                    <td className="px-3 py-2 text-right">
-                      {renderVariantEditDialog(
-                        variant,
-                        <Button size="sm" variant="outline">
+                pagedProducts.flatMap((product) => {
+                  const isExpanded = expandedProductIds.has(product.productId)
+                  return [
+                    <tr
+                      key={product.productId}
+                      className="border-t border-border/70 hover:bg-muted/30 cursor-pointer"
+                      onClick={() => toggleProduct(product.productId)}
+                    >
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-medium">{product.productName}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{product.brandName ?? "-"}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{product.categoryName ?? "-"}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{product.season ?? "-"}</td>
+                      <td className="px-3 py-2 text-right text-xs text-muted-foreground">{product.variants.length}件</td>
+                      <td className="px-3 py-2 text-right text-xs text-muted-foreground">-</td>
+                      <td className="px-3 py-2 text-right font-medium">{product.totalEstimatedStock}</td>
+                      <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                        <Button size="sm" variant="outline" onClick={() => openProductEdit(product)}>
                           編集
-                        </Button>,
-                      )}
-                    </td>
-                  </tr>
-                ))
+                        </Button>
+                      </td>
+                    </tr>,
+                    ...(isExpanded
+                      ? product.variants.map((variant) => (
+                          <tr key={variant.variantId} className="bg-muted/20 border-t border-border/40">
+                            <td className="px-3 py-1.5"></td>
+                            <td className="px-3 py-1.5 text-xs text-muted-foreground pl-6">
+                              <span className="text-foreground/60 mr-2">└</span>
+                              {[variant.color, variant.size].filter(Boolean).join(" / ") || "−"}
+                              {variant.janCode && (
+                                <span className="ml-2 text-muted-foreground/70">JAN: {variant.janCode}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-1.5 text-xs text-muted-foreground">-</td>
+                            <td className="px-3 py-1.5 text-xs text-muted-foreground">-</td>
+                            <td className="px-3 py-1.5 text-xs text-muted-foreground">-</td>
+                            <td className="px-3 py-1.5 text-right text-xs text-muted-foreground">-</td>
+                            <td className="px-3 py-1.5 text-right text-xs text-muted-foreground">
+                              {variant.priceYen != null ? formatCurrency(variant.priceYen) : "-"}
+                            </td>
+                            <td className="px-3 py-1.5 text-right text-xs">{variant.estimatedStock}</td>
+                            <td className="px-3 py-1.5 text-right" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-xs px-2"
+                                onClick={() => openVariantEdit(variant)}
+                              >
+                                編集
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      : []),
+                  ]
+                })
               )}
             </tbody>
           </table>
@@ -314,9 +572,9 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
           <span className="text-muted-foreground">
-            {filteredVariants.length === 0
+            {filteredProducts.length === 0
               ? "0 件"
-              : `${catalogRangeStart}-${catalogRangeEnd} 件 / ${filteredVariants.length} 件`}
+              : `${catalogRangeStart}-${catalogRangeEnd} 件 / ${filteredProducts.length} 商品`}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -346,6 +604,8 @@ export function InventoryAI({ initialTab = "recommendations" }: InventoryAIProps
 
   return (
     <div className="p-6">
+      {productEditDialog}
+      {variantEditDialog}
       <div className="mb-6">
         <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory AI</p>
         <h2 className="text-2xl font-bold text-foreground">{initialTab === "catalog" ? "商品一覧" : "仕入れ提案"}</h2>

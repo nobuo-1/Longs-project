@@ -41,7 +41,7 @@ const reserveDefaults = [
 ]
 
 // ── カテゴリ編集用の行型（新規追加行は id が未定） ────────────────────────
-type DraftRow = { key: string; id?: string; name: string; sellThroughDays: number }
+type DraftRow = { key: string; id?: string; categoryCode: string; name: string; sellThroughDays: number }
 
 export default function SettingsPage() {
   // ── カテゴリ状態 ──────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ export default function SettingsPage() {
   // ── カテゴリ編集開始 ──────────────────────────────────────────────────────
   const handleCategoryEdit = () => {
     setDraft(
-      categories.map((c) => ({ key: c.id, id: c.id, name: c.name, sellThroughDays: c.sellThroughDays })),
+      categories.map((c) => ({ key: c.id, id: c.id, categoryCode: c.categoryCode ?? "", name: c.name, sellThroughDays: c.sellThroughDays })),
     )
     setDeleteErrors({})
     setIsCategoryEditing(true)
@@ -134,23 +134,23 @@ export default function SettingsPage() {
       if (row.id) {
         // 既存カテゴリ: 変更があれば更新
         const original = categories.find((c) => c.id === row.id)
-        if (original && original.name === row.name && original.sellThroughDays === row.sellThroughDays) {
+        if (original && original.name === row.name && original.sellThroughDays === row.sellThroughDays && (original.categoryCode ?? "") === row.categoryCode) {
           updated.push(original)
           continue
         }
         setSavingIds((s) => new Set(s).add(row.key))
-        const res = await updateCategoryAction(row.id, row.name, row.sellThroughDays)
+        const res = await updateCategoryAction(row.id, row.name, row.sellThroughDays, row.categoryCode || null)
         setSavingIds((s) => { const n = new Set(s); n.delete(row.key); return n })
         if (res.success) {
           updated.push(res.data)
         } else {
           errors.push(`「${row.name}」: ${res.error}`)
-          updated.push(original ?? { id: row.id, name: row.name, sellThroughDays: row.sellThroughDays })
+          updated.push(original ?? { id: row.id, categoryCode: row.categoryCode || null, name: row.name, sellThroughDays: row.sellThroughDays })
         }
       } else {
         // 新規カテゴリ
         setSavingIds((s) => new Set(s).add(row.key))
-        const res = await createCategoryAction(row.name, row.sellThroughDays)
+        const res = await createCategoryAction(row.name, row.sellThroughDays, row.categoryCode || null)
         setSavingIds((s) => { const n = new Set(s); n.delete(row.key); return n })
         if (res.success) {
           updated.push(res.data)
@@ -175,7 +175,7 @@ export default function SettingsPage() {
   const handleAddDraftRow = () => {
     setDraft((prev) => [
       ...prev,
-      { key: `new-${Date.now()}`, name: "", sellThroughDays: 60 },
+      { key: `new-${Date.now()}`, categoryCode: "", name: "", sellThroughDays: 60 },
     ])
   }
 
@@ -214,7 +214,7 @@ export default function SettingsPage() {
   const reserveView = isReserveEditing ? reserveDraft : reserveSettings
   const reserveTotal = reserveView.reduce((sum, item) => sum + item.percent, 0)
 
-  const displayRows = isCategoryEditing ? draft : categories.map((c) => ({ key: c.id, id: c.id, name: c.name, sellThroughDays: c.sellThroughDays }))
+  const displayRows = isCategoryEditing ? draft : categories.map((c) => ({ key: c.id, id: c.id, categoryCode: c.categoryCode ?? "", name: c.name, sellThroughDays: c.sellThroughDays }))
 
   return (
     <div className="flex-1 overflow-auto bg-white">
@@ -313,23 +313,45 @@ export default function SettingsPage() {
                           {deleteErrors[row.key] && (
                             <p className="text-xs text-red-500">{deleteErrors[row.key]}</p>
                           )}
-                          <Input
-                            type="number"
-                            min={1}
-                            value={row.sellThroughDays}
-                            onChange={(e) =>
-                              setDraft((prev) =>
-                                prev.map((r) =>
-                                  r.key === row.key ? { ...r, sellThroughDays: Number(e.target.value) } : r,
-                                ),
-                              )
-                            }
-                          />
-                          <p className="text-xs text-muted-foreground">売り切り目標日数</p>
+                          <div>
+                            <Input
+                              placeholder="カテゴリコード（例: TOP, BOT）"
+                              value={row.categoryCode}
+                              onChange={(e) =>
+                                setDraft((prev) =>
+                                  prev.map((r) => (r.key === row.key ? { ...r, categoryCode: e.target.value } : r)),
+                                )
+                              }
+                              className="text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">カテゴリコード（省略可）</p>
+                          </div>
+                          <div>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={row.sellThroughDays}
+                              onChange={(e) =>
+                                setDraft((prev) =>
+                                  prev.map((r) =>
+                                    r.key === row.key ? { ...r, sellThroughDays: Number(e.target.value) } : r,
+                                  ),
+                                )
+                              }
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">売り切り目標日数</p>
+                          </div>
                         </>
                       ) : (
                         <>
-                          <p className="text-sm font-semibold">{row.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold">{row.name}</p>
+                            {row.categoryCode && (
+                              <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+                                {row.categoryCode}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-lg font-bold text-foreground">{row.sellThroughDays} 日</p>
                           <p className="text-xs text-muted-foreground">売り切り目標日数</p>
                         </>

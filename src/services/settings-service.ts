@@ -7,6 +7,7 @@ export const SYSTEM_SETTING_KEYS = {
 
 export type CategoryDTO = {
   id: string
+  categoryCode: string | null
   name: string
   sellThroughDays: number
 }
@@ -16,24 +17,31 @@ export async function getCategories(): Promise<CategoryDTO[]> {
     where: { deletedAt: null },
     orderBy: { createdAt: "asc" },
   })
-  return rows.map((c) => ({ id: c.id, name: c.name, sellThroughDays: c.sellThroughDays }))
+  return rows.map((c) => ({ id: c.id, categoryCode: c.categoryCode, name: c.name, sellThroughDays: c.sellThroughDays }))
 }
 
-export async function createCategory(name: string, sellThroughDays: number): Promise<CategoryDTO> {
-  const c = await prisma.productCategory.create({ data: { name, sellThroughDays } })
-  return { id: c.id, name: c.name, sellThroughDays: c.sellThroughDays }
+export async function createCategory(
+  name: string,
+  sellThroughDays: number,
+  categoryCode?: string | null,
+): Promise<CategoryDTO> {
+  const c = await prisma.productCategory.create({
+    data: { name, sellThroughDays, categoryCode: categoryCode ?? null },
+  })
+  return { id: c.id, categoryCode: c.categoryCode, name: c.name, sellThroughDays: c.sellThroughDays }
 }
 
 export async function updateCategory(
   id: string,
   name: string,
   sellThroughDays: number,
+  categoryCode?: string | null,
 ): Promise<CategoryDTO> {
   const c = await prisma.productCategory.update({
     where: { id },
-    data: { name, sellThroughDays },
+    data: { name, sellThroughDays, categoryCode: categoryCode ?? null },
   })
-  return { id: c.id, name: c.name, sellThroughDays: c.sellThroughDays }
+  return { id: c.id, categoryCode: c.categoryCode, name: c.name, sellThroughDays: c.sellThroughDays }
 }
 
 // ── システム設定 ──────────────────────────────────────────────────────────────
