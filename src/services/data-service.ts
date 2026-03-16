@@ -244,6 +244,19 @@ export async function importData(
       }
     }
 
+    // 5-2. 取引先マスタ自動 upsert（sales / payables / receivables）
+    if (rowsSuccess > 0 && (dbDataset === "sales" || dbDataset === "payables" || dbDataset === "receivables")) {
+      try {
+        await upsertPartnerMaster(factRows, dbDataset)
+      } catch (e) {
+        issues.push({
+          level: "warning",
+          message: `取引先マスタの更新に失敗しました: ${e instanceof Error ? e.message : String(e)}`,
+          rowNumber: 0,
+        })
+      }
+    }
+
     // 6. DataImportIssue 保存
     if (issues.length > 0) {
       await prisma.dataImportIssue.createMany({
@@ -541,6 +554,59 @@ async function upsertProductMaster(
   }
 
   return { warnings }
+}
+
+/**
+ * payables / receivables のインポート行から BusinessPartner + Supplier/Customer を自動 upsert する
+ * - BusinessPartner は name で検索し、なければ新規作成
+ * - payables → vendor_name → Supplier
+ * - receivables → customer_name → Customer
+ */
+async function upsertPartnerMaster(
+  factRows: Record<string, unknown>[],
+  dataset: "sales" | "payables" | "receivables",
+): Promise<void> {
+  if (dataset === "sales") {
+    // sales: customerCategory1Name → BusinessPartner + Customer
+    const names = [...new Set(factRows.map((r) => r.customerCategory1Name as string).filter(Boolean))]
+    for (const name of names) {
+      const existing = await prisma.businessPartner.findFirst({ where: { name } })
+      const partnerId = existing
+        ? existing.id
+        : (await prisma.businessPartner.create({ data: { name } })).id
+      await prisma.customer.upsert({
+        where: { businessPartnerId: partnerId },
+        create: { businessPartnerId: partnerId },
+        update: {},
+      })
+    }
+  } else if (dataset === "payables") {
+    const vendorNames = [...new Set(factRows.map((r) => r.vendorName as string).filter(Boolean))]
+    for (const name of vendorNames) {
+      const existing = await prisma.businessPartner.findFirst({ where: { name } })
+      const partnerId = existing
+        ? existing.id
+        : (await prisma.businessPartner.create({ data: { name } })).id
+      await prisma.supplier.upsert({
+        where: { businessPartnerId: partnerId },
+        create: { businessPartnerId: partnerId },
+        update: {},
+      })
+    }
+  } else {
+    const customerNames = [...new Set(factRows.map((r) => r.customerName as string).filter(Boolean))]
+    for (const name of customerNames) {
+      const existing = await prisma.businessPartner.findFirst({ where: { name } })
+      const partnerId = existing
+        ? existing.id
+        : (await prisma.businessPartner.create({ data: { name } })).id
+      await prisma.customer.upsert({
+        where: { businessPartnerId: partnerId },
+        create: { businessPartnerId: partnerId },
+        update: {},
+      })
+    }
+  }
 }
 
 /** インポート履歴一覧（削除済み除く）*/

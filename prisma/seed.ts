@@ -335,6 +335,24 @@ async function main() {
   }
   console.log(`✓ PayablesFact (20件)`)
 
+  // ── BusinessPartner / Supplier (payables_fact の vendor_name から) ────────────
+  const supplierDefs = [
+    { name: "大阪繊維" },
+    { name: "京都染工" },
+  ]
+  for (const { name } of supplierDefs) {
+    const existing = await prisma.businessPartner.findFirst({ where: { name } })
+    const partnerId = existing
+      ? existing.id
+      : (await prisma.businessPartner.create({ data: { name } })).id
+    await prisma.supplier.upsert({
+      where: { businessPartnerId: partnerId },
+      create: { businessPartnerId: partnerId },
+      update: {},
+    })
+  }
+  console.log(`✓ BusinessPartner + Supplier (${supplierDefs.length}件)`)
+
   // ── ReceivablesFact ──────────────────────────────────────────────────────────
   const recBase = [
     { staffName: "佐藤", customerName: "南青山セレクト", customerShort: "南青山", prevBalanceYen: BigInt(420000), receivedYen: BigInt(980000),  carryoverYen: BigInt(0), netSalesYen: BigInt(1080000), salesYen: BigInt(1080000), returnYen: BigInt(0), discountYen: BigInt(0), otherYen: BigInt(0), taxYen: BigInt(108000), salesTaxInYen: BigInt(1188000), monthEndBalanceYen: BigInt(520000),  cashYen: BigInt(0), checkYen: BigInt(0), transferYen: BigInt(980000),  billYen: BigInt(0), offsetYen: BigInt(0), discount2Yen: BigInt(0), feeYen: BigInt(0), other2Yen: BigInt(0), npCreditYen: BigInt(1200000), npPaymentsYen: BigInt(300000), creditLimitBalanceYen: BigInt(900000), notes: "主要卸先" },
@@ -352,6 +370,24 @@ async function main() {
     }
   }
   console.log(`✓ ReceivablesFact (20件)`)
+
+  // ── BusinessPartner / Customer (receivables_fact の customer_name から) ────────
+  const customerDefs = [
+    { name: "南青山セレクト" },
+    { name: "北陸百貨店" },
+  ]
+  for (const { name } of customerDefs) {
+    const existing = await prisma.businessPartner.findFirst({ where: { name } })
+    const partnerId = existing
+      ? existing.id
+      : (await prisma.businessPartner.create({ data: { name } })).id
+    await prisma.customer.upsert({
+      where: { businessPartnerId: partnerId },
+      create: { businessPartnerId: partnerId },
+      update: {},
+    })
+  }
+  console.log(`✓ BusinessPartner + Customer (${customerDefs.length}件)`)
 
   // ── GrossProfitFact ──────────────────────────────────────────────────────────
   const gpBase = [

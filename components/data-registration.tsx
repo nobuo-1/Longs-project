@@ -15,11 +15,14 @@ import {
   Wallet,
   Plus,
   Trash2,
+  Store,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { dataSets } from "@/lib/data-sets"
 import { cn } from "@/lib/utils"
 import {
@@ -36,6 +39,14 @@ import {
   saveFixedCostsAction,
   type FixedCostDTO,
 } from "@/src/actions/settings-actions"
+import {
+  getSuppliersAction,
+  updateSupplierPaymentTermsAction,
+  getCustomersAction,
+  updateCustomerCollectionTermsAction,
+  type SupplierDTO,
+  type CustomerDTO,
+} from "@/src/actions/partner-actions"
 
 type FixedCostDraftRow = Omit<FixedCostDTO, "id"> & { _key: string; id?: string }
 
@@ -51,6 +62,17 @@ type PendingImport = {
   targetId: string
   file: File
 }
+
+const CLOSING_DAY_OPTIONS = [
+  ...Array.from({ length: 28 }, (_, i) => ({ value: i + 1, label: `${i + 1}日` })),
+  { value: 31, label: "末日" },
+]
+const MONTH_OFFSET_OPTIONS = [
+  { value: 0, label: "当月" },
+  { value: 1, label: "翌月" },
+  { value: 2, label: "翌々月" },
+]
+const PAYMENT_DAY_OPTIONS = CLOSING_DAY_OPTIONS
 
 const statusLabels: Record<string, string> = {
   success: "取込完了",
@@ -126,11 +148,29 @@ export function DataRegistration() {
   const [fixedSaving, setFixedSaving] = useState(false)
   const [fixedError, setFixedError] = useState<string | null>(null)
 
+  // ── 取引先状態 ────────────────────────────────────────────────────────────
+  const [suppliers, setSuppliers] = useState<SupplierDTO[]>([])
+  const [customers, setCustomers] = useState<CustomerDTO[]>([])
+  const [partnersLoading, setPartnersLoading] = useState(true)
+  const [savingPartnerId, setSavingPartnerId] = useState<string | null>(null)
+  const [partnerError, setPartnerError] = useState<string | null>(null)
+  const [supplierDrafts, setSupplierDrafts] = useState<Record<string, Partial<SupplierDTO>>>({})
+  const [customerDrafts, setCustomerDrafts] = useState<Record<string, Partial<CustomerDTO>>>({})
+
   useEffect(() => {
     ;(async () => {
       const res = await getFixedCostsAction()
       if (res.success) setFixedCosts(res.data)
       setFixedLoading(false)
+    })()
+  }, [])
+
+  useEffect(() => {
+    ;(async () => {
+      const [suppRes, custRes] = await Promise.all([getSuppliersAction(), getCustomersAction()])
+      if (suppRes.success) setSuppliers(suppRes.data)
+      if (custRes.success) setCustomers(custRes.data)
+      setPartnersLoading(false)
     })()
   }, [])
 
@@ -258,7 +298,7 @@ export function DataRegistration() {
         <p className="text-xs text-muted-foreground uppercase tracking-wide">Data</p>
         <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Upload className="w-6 h-6 text-[#345fe1]" />
-          データインポート
+          データ登録
         </h2>
         <p className="text-muted-foreground">売上・仕入・請求・年度粗利データを個別にアップロード/編集できます。</p>
       </div>
@@ -500,6 +540,286 @@ export function DataRegistration() {
                 )}
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── 取引先設定 ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Store className="w-5 h-5 text-[#345fe1]" />
+            取引先設定
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {partnerError && <p className="text-xs text-red-500 mb-3">{partnerError}</p>}
+          {partnersLoading ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">読み込み中...</span>
+            </div>
+          ) : (
+            <Tabs defaultValue="suppliers">
+              <TabsList className="mb-4">
+                <TabsTrigger value="suppliers">仕入先</TabsTrigger>
+                <TabsTrigger value="customers">得意先</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="suppliers">
+                {suppliers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">仕入先が登録されていません。</p>
+                ) : (
+                  <div className="rounded-md border border-border overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/40 text-xs text-muted-foreground">
+                          <th className="px-3 py-2 text-left font-medium">仕入先名</th>
+                          <th className="px-3 py-2 text-left font-medium">締め日</th>
+                          <th className="px-3 py-2 text-left font-medium">支払月</th>
+                          <th className="px-3 py-2 text-left font-medium">支払日</th>
+                          <th className="px-3 py-2 text-left font-medium"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/70">
+                        {suppliers.map((s) => {
+                          const draft = supplierDrafts[s.businessPartnerId] ?? {}
+                          const closingDay = draft.closingDay ?? s.closingDay
+                          const paymentMonthOffset = draft.paymentMonthOffset ?? s.paymentMonthOffset
+                          const paymentDay = draft.paymentDay ?? s.paymentDay
+                          const isSaving = savingPartnerId === s.businessPartnerId
+                          const isDirty =
+                            draft.closingDay !== undefined ||
+                            draft.paymentMonthOffset !== undefined ||
+                            draft.paymentDay !== undefined
+                          return (
+                            <tr key={s.businessPartnerId} className="hover:bg-muted/20">
+                              <td className="px-3 py-2 font-medium">{s.name}</td>
+                              <td className="px-3 py-2">
+                                <Select
+                                  value={String(closingDay)}
+                                  onValueChange={(v) =>
+                                    setSupplierDrafts((prev) => ({
+                                      ...prev,
+                                      [s.businessPartnerId]: { ...prev[s.businessPartnerId], closingDay: Number(v) },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {CLOSING_DAY_OPTIONS.map((o) => (
+                                      <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Select
+                                  value={String(paymentMonthOffset)}
+                                  onValueChange={(v) =>
+                                    setSupplierDrafts((prev) => ({
+                                      ...prev,
+                                      [s.businessPartnerId]: { ...prev[s.businessPartnerId], paymentMonthOffset: Number(v) },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {MONTH_OFFSET_OPTIONS.map((o) => (
+                                      <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Select
+                                  value={String(paymentDay)}
+                                  onValueChange={(v) =>
+                                    setSupplierDrafts((prev) => ({
+                                      ...prev,
+                                      [s.businessPartnerId]: { ...prev[s.businessPartnerId], paymentDay: Number(v) },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PAYMENT_DAY_OPTIONS.map((o) => (
+                                      <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Button
+                                  size="sm"
+                                  className="h-8 text-xs bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                                  disabled={!isDirty || isSaving}
+                                  onClick={async () => {
+                                    setSavingPartnerId(s.businessPartnerId)
+                                    setPartnerError(null)
+                                    const res = await updateSupplierPaymentTermsAction(s.businessPartnerId, {
+                                      closingDay,
+                                      paymentMonthOffset,
+                                      paymentDay,
+                                    })
+                                    setSavingPartnerId(null)
+                                    if (res.success) {
+                                      setSuppliers((prev) => prev.map((x) => (x.businessPartnerId === s.businessPartnerId ? res.data : x)))
+                                      setSupplierDrafts((prev) => {
+                                        const next = { ...prev }
+                                        delete next[s.businessPartnerId]
+                                        return next
+                                      })
+                                    } else {
+                                      setPartnerError(res.error)
+                                    }
+                                  }}
+                                >
+                                  {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : "保存"}
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="customers">
+                {customers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">得意先が登録されていません。</p>
+                ) : (
+                  <div className="rounded-md border border-border overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/40 text-xs text-muted-foreground">
+                          <th className="px-3 py-2 text-left font-medium">得意先名</th>
+                          <th className="px-3 py-2 text-left font-medium">締め日</th>
+                          <th className="px-3 py-2 text-left font-medium">回収月</th>
+                          <th className="px-3 py-2 text-left font-medium">回収日</th>
+                          <th className="px-3 py-2 text-left font-medium"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/70">
+                        {customers.map((c) => {
+                          const draft = customerDrafts[c.businessPartnerId] ?? {}
+                          const closingDay = draft.closingDay ?? c.closingDay
+                          const collectionMonthOffset = draft.collectionMonthOffset ?? c.collectionMonthOffset
+                          const collectionDay = draft.collectionDay ?? c.collectionDay
+                          const isSaving = savingPartnerId === c.businessPartnerId
+                          const isDirty =
+                            draft.closingDay !== undefined ||
+                            draft.collectionMonthOffset !== undefined ||
+                            draft.collectionDay !== undefined
+                          return (
+                            <tr key={c.businessPartnerId} className="hover:bg-muted/20">
+                              <td className="px-3 py-2 font-medium">{c.name}</td>
+                              <td className="px-3 py-2">
+                                <Select
+                                  value={String(closingDay)}
+                                  onValueChange={(v) =>
+                                    setCustomerDrafts((prev) => ({
+                                      ...prev,
+                                      [c.businessPartnerId]: { ...prev[c.businessPartnerId], closingDay: Number(v) },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {CLOSING_DAY_OPTIONS.map((o) => (
+                                      <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Select
+                                  value={String(collectionMonthOffset)}
+                                  onValueChange={(v) =>
+                                    setCustomerDrafts((prev) => ({
+                                      ...prev,
+                                      [c.businessPartnerId]: { ...prev[c.businessPartnerId], collectionMonthOffset: Number(v) },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {MONTH_OFFSET_OPTIONS.map((o) => (
+                                      <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Select
+                                  value={String(collectionDay)}
+                                  onValueChange={(v) =>
+                                    setCustomerDrafts((prev) => ({
+                                      ...prev,
+                                      [c.businessPartnerId]: { ...prev[c.businessPartnerId], collectionDay: Number(v) },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PAYMENT_DAY_OPTIONS.map((o) => (
+                                      <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Button
+                                  size="sm"
+                                  className="h-8 text-xs bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                                  disabled={!isDirty || isSaving}
+                                  onClick={async () => {
+                                    setSavingPartnerId(c.businessPartnerId)
+                                    setPartnerError(null)
+                                    const res = await updateCustomerCollectionTermsAction(c.businessPartnerId, {
+                                      closingDay,
+                                      collectionMonthOffset,
+                                      collectionDay,
+                                    })
+                                    setSavingPartnerId(null)
+                                    if (res.success) {
+                                      setCustomers((prev) => prev.map((x) => (x.businessPartnerId === c.businessPartnerId ? res.data : x)))
+                                      setCustomerDrafts((prev) => {
+                                        const next = { ...prev }
+                                        delete next[c.businessPartnerId]
+                                        return next
+                                      })
+                                    } else {
+                                      setPartnerError(res.error)
+                                    }
+                                  }}
+                                >
+                                  {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : "保存"}
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>

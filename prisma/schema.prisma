@@ -304,9 +304,12 @@ model BusinessPartner {
 }
 
 model Supplier {
-  businessPartnerId String   @id @map("business_partner_id") @db.Uuid
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  businessPartnerId  String   @id @map("business_partner_id") @db.Uuid
+  closingDay         Int      @default(31) @map("closing_day")
+  paymentMonthOffset Int      @default(1)  @map("payment_month_offset")
+  paymentDay         Int      @default(31) @map("payment_day")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
   businessPartner BusinessPartner @relation(fields: [businessPartnerId], references: [id], onDelete: Cascade)
 
@@ -314,9 +317,12 @@ model Supplier {
 }
 
 model Customer {
-  businessPartnerId String   @id @map("business_partner_id") @db.Uuid
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  businessPartnerId     String   @id @map("business_partner_id") @db.Uuid
+  closingDay            Int      @default(31) @map("closing_day")
+  collectionMonthOffset Int      @default(1)  @map("collection_month_offset")
+  collectionDay         Int      @default(31) @map("collection_day")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
   businessPartner BusinessPartner @relation(fields: [businessPartnerId], references: [id], onDelete: Cascade)
 
