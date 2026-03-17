@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { getGanttEntriesAction, type GanttEntryDTO } from "@/src/actions/finance-actions"
 import {
   Wallet,
   Calendar,
@@ -57,24 +58,11 @@ const inventoryColumnSummaries = [
 
 type FlowType = "income" | "expense"
 
-type RecurringSchedule = {
-  id: string
-  partner: string
-  description: string
-  amount: number
-  type: FlowType
-  category: string
-  cycle: string
-  offsetMonths: number
-  day: number
-  tags?: string[]
-  seasonality?: number[]
-  isFixed?: boolean
-}
+type RecurringEntry = GanttEntryDTO
 
-type FinanceEvent = {
+type EntryOccurrence = {
   id: string
-  scheduleId: string
+  entryId: string
   partner: string
   description: string
   amount: number
@@ -84,198 +72,15 @@ type FinanceEvent = {
   dueDate: Date
   invoiceMonth: number
   tags?: string[]
-  isFixed?: boolean
 }
 
 const totalAssets = 15000000 // 15 million yen
 
-const recurringSchedules: RecurringSchedule[] = [
-  {
-    id: "client-south",
-    partner: "南青山セレクト",
-    description: "主要卸先（30日締め）",
-    amount: 3200000,
-    type: "income",
-    category: "売掛入金",
-    cycle: "当月末払い",
-    offsetMonths: 0,
-    day: 28,
-    tags: ["当月払い", "主力"],
-  },
-  {
-    id: "client-north",
-    partner: "北陸百貨店",
-    description: "百貨店PB",
-    amount: 2100000,
-    type: "income",
-    category: "売掛入金",
-    cycle: "翌月末払い",
-    offsetMonths: 1,
-    day: 30,
-    tags: ["翌月末払い"],
-  },
-  {
-    id: "client-kyushu",
-    partner: "九州チェーン",
-    description: "ロイヤリティ連動型",
-    amount: 1650000,
-    type: "income",
-    category: "売掛入金",
-    cycle: "翌々月15日払い",
-    offsetMonths: 2,
-    day: 15,
-    tags: ["翌々月15日払い"],
-  },
-  {
-    id: "client-ec",
-    partner: "ECプラットフォーム",
-    description: "カード決済入金",
-    amount: 900000,
-    type: "income",
-    category: "EC入金",
-    cycle: "当月15日払い",
-    offsetMonths: 0,
-    day: 15,
-    tags: ["当月払い", "オンライン"],
-  },
-  {
-    id: "client-others",
-    partner: "その他取引先120社",
-    description: "スポット/小口まとめ",
-    amount: 2400000,
-    type: "income",
-    category: "売掛入金",
-    cycle: "翌月25日払い",
-    offsetMonths: 1,
-    day: 25,
-    tags: ["数百社集約"],
-    seasonality: [1, 1.02, 0.95, 1.08, 1.1, 1.12, 1.2, 1.18, 1.05, 1, 0.96, 0.98],
-  },
-  {
-    id: "supplier-osaka",
-    partner: "大阪繊維",
-    description: "生地仕入れ",
-    amount: 1180000,
-    type: "expense",
-    category: "仕入支払い",
-    cycle: "翌月15日払い",
-    offsetMonths: 1,
-    day: 15,
-    tags: ["翌月支払い"],
-  },
-  {
-    id: "supplier-kyoto",
-    partner: "京都染工",
-    description: "加工・染色",
-    amount: 760000,
-    type: "expense",
-    category: "仕入支払い",
-    cycle: "翌々月末払い",
-    offsetMonths: 2,
-    day: 30,
-    tags: ["翌々月末払い"],
-  },
-  {
-    id: "supplier-ship",
-    partner: "東京物流パートナー",
-    description: "物流・倉庫",
-    amount: 430000,
-    type: "expense",
-    category: "物流/システム",
-    cycle: "当月末払い",
-    offsetMonths: 0,
-    day: 25,
-    tags: ["当月払い"],
-  },
-  {
-    id: "supplier-factory",
-    partner: "ベトナム工場A",
-    description: "OEM仕入れ",
-    amount: 1350000,
-    type: "expense",
-    category: "仕入支払い",
-    cycle: "翌月末払い",
-    offsetMonths: 1,
-    day: 30,
-    tags: ["海外"],
-  },
-]
-
-const fixedCosts: RecurringSchedule[] = [
-  {
-    id: "fixed-rent",
-    partner: "家賃・共益費",
-    description: "本社+倉庫",
-    amount: 850000,
-    type: "expense",
-    category: "固定費",
-    cycle: "毎月1日",
-    offsetMonths: 0,
-    day: 1,
-    tags: ["固定費"],
-    isFixed: true,
-  },
-  {
-    id: "fixed-payroll",
-    partner: "人件費",
-    description: "社員・アルバイト",
-    amount: 1800000,
-    type: "expense",
-    category: "固定費",
-    cycle: "毎月25日",
-    offsetMonths: 0,
-    day: 25,
-    tags: ["給与", "固定費"],
-    isFixed: true,
-  },
-  {
-    id: "fixed-utility",
-    partner: "水道光熱・通信",
-    description: "公共料金/回線",
-    amount: 240000,
-    type: "expense",
-    category: "固定費",
-    cycle: "毎月10日",
-    offsetMonths: 0,
-    day: 10,
-    tags: ["固定費"],
-    isFixed: true,
-  },
-  {
-    id: "fixed-ads",
-    partner: "販促・広告枠",
-    description: "媒体・SNS運用",
-    amount: 450000,
-    type: "expense",
-    category: "販促費",
-    cycle: "毎月20日",
-    offsetMonths: 0,
-    day: 20,
-    tags: ["固定費"],
-    isFixed: true,
-  },
-  {
-    id: "fixed-saas",
-    partner: "SaaS/システム",
-    description: "EC/基幹/分析",
-    amount: 220000,
-    type: "expense",
-    category: "システム",
-    cycle: "毎月5日",
-    offsetMonths: 0,
-    day: 5,
-    tags: ["固定費", "サブスク"],
-    isFixed: true,
-  },
-]
-
-const schedules: RecurringSchedule[] = [...recurringSchedules, ...fixedCosts]
-
-const expandSchedules = (year: number): FinanceEvent[] => {
-  const events: FinanceEvent[] = []
+const expandSchedules = (year: number, entries: RecurringEntry[]): EntryOccurrence[] => {
+  const events: EntryOccurrence[] = []
 
   for (let month = 0; month < 12; month++) {
-    schedules.forEach((schedule) => {
+    entries.forEach((schedule) => {
       const dueMonth = month + schedule.offsetMonths
       const dueYear = year + Math.floor(dueMonth / 12)
       const normalizedMonth = ((dueMonth % 12) + 12) % 12
@@ -284,12 +89,12 @@ const expandSchedules = (year: number): FinanceEvent[] => {
         return
       }
 
-      const seasonalFactor = schedule.seasonality?.[month] ?? 1
+      const seasonalFactor = schedule.seasonality[month] ?? 1
       const amount = Math.round(schedule.amount * seasonalFactor)
 
       events.push({
         id: `${schedule.id}-${year}-${normalizedMonth + 1}`,
-        scheduleId: schedule.id,
+        entryId: schedule.id,
         partner: schedule.partner,
         description: schedule.description,
         amount,
@@ -298,8 +103,7 @@ const expandSchedules = (year: number): FinanceEvent[] => {
         cycle: schedule.cycle,
         dueDate: new Date(dueYear, normalizedMonth, schedule.day),
         invoiceMonth: month,
-        tags: schedule.tags,
-        isFixed: schedule.isFixed,
+        tags: schedule.tags.length > 0 ? schedule.tags : undefined,
       })
     })
   }
@@ -321,9 +125,18 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date(2024, 3, 1))
   const [viewYear, setViewYear] = useState(2024)
   const [ganttMode, setGanttMode] = useState<"monthly" | "yearly">("monthly")
-  const [selectedEvent, setSelectedEvent] = useState<FinanceEvent | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<EntryOccurrence | null>(null)
   const [showSalesModal, setShowSalesModal] = useState(false)
   const [newSale, setNewSale] = useState({ partner: "", amount: 0, cycle: "当月末払い" })
+  const [schedules, setSchedules] = useState<RecurringEntry[]>([])
+  const [schedulesLoading, setSchedulesLoading] = useState(true)
+
+  useEffect(() => {
+    getGanttEntriesAction().then((result) => {
+      if (result.success) setSchedules(result.data)
+      setSchedulesLoading(false)
+    })
+  }, [])
 
   const totalReservePercent = Object.values(reserveSettings).reduce((a, b) => a + b, 0)
   const reserveAmount = Math.round(totalAssets * (totalReservePercent / 100))
@@ -362,7 +175,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     setCurrentMonth(new Date(nextYear, currentMonth.getMonth(), 1))
   }
 
-  const yearlyEvents = useMemo(() => expandSchedules(viewYear), [viewYear])
+  const yearlyEvents = useMemo(() => expandSchedules(viewYear, schedules), [viewYear, schedules])
 
   const monthlyEvents = useMemo(
     () => yearlyEvents.filter((event) => event.dueDate.getMonth() === currentMonth.getMonth()),
@@ -382,7 +195,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             acc.income += event.amount
           } else {
             acc.expense += event.amount
-            if (event.isFixed || event.category.includes("固定")) {
+            if (event.category.includes("固定")) {
               acc.fixed += event.amount
             }
           }
@@ -401,7 +214,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             acc.income += event.amount
           } else {
             acc.expense += event.amount
-            if (event.isFixed || event.category.includes("固定")) {
+            if (event.category.includes("固定")) {
               acc.fixed += event.amount
             }
           }
@@ -419,7 +232,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
         const income = monthEvents.filter((e) => e.type === "income").reduce((sum, e) => sum + e.amount, 0)
         const expense = monthEvents.filter((e) => e.type === "expense").reduce((sum, e) => sum + e.amount, 0)
         const fixed = monthEvents
-          .filter((e) => e.isFixed || e.category.includes("固定"))
+          .filter((e) => e.category.includes("固定"))
           .reduce((sum, e) => sum + e.amount, 0)
 
         return {
@@ -719,7 +532,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
   const renderGantt = () => {
     const yearlyRows = schedules.map((schedule) => ({
       ...schedule,
-      events: yearlyEvents.filter((event) => event.scheduleId === schedule.id),
+      events: yearlyEvents.filter((event) => event.entryId === schedule.id),
     }))
 
     const monthlyLegend = (
@@ -770,7 +583,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
         return checkpointRows.map((checkpoint) => ({ type: "checkpoint" as const, checkpoint }))
       }
       const rows: Array<
-        | { type: "event"; event: FinanceEvent }
+        | { type: "event"; event: EntryOccurrence }
         | { type: "checkpoint"; checkpoint: (typeof checkpointRows)[number] }
       > = []
       let checkpointIndex = 0
@@ -892,12 +705,12 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                           "text-xs font-medium",
                           row.event.type === "income"
                             ? "text-[#345fe1]"
-                            : row.event.isFixed
+                            : row.event.category.includes("固定")
                               ? "text-amber-700"
                               : "text-red-600",
                         )}
                       >
-                        {row.event.type === "income" ? "入金" : row.event.isFixed ? "固定費" : "支払い"}
+                        {row.event.type === "income" ? "入金" : row.event.category.includes("固定") ? "固定費" : "支払い"}
                       </span>
                     </td>
                     <td
@@ -905,7 +718,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                         "py-3 px-4 text-right font-semibold",
                         row.event.type === "income"
                           ? "text-[#345fe1]"
-                          : row.event.isFixed
+                          : row.event.category.includes("固定")
                             ? "text-amber-700"
                             : "text-red-600",
                       )}
@@ -937,9 +750,9 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             </Button>
           </div>
           <div className="text-xs text-muted-foreground">
-            <span>主要取引先 {recurringSchedules.length} 件</span>
+            <span>主要取引先 {schedules.filter((s) => !s.isFixed).length} 件</span>
             <span className="mx-2">・</span>
-            <span>固定費 {fixedCosts.length} 件</span>
+            <span>固定費 {schedules.filter((s) => s.isFixed).length} 件</span>
           </div>
         </div>
 
@@ -1021,7 +834,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 {Array.from({ length: 12 }, (_, month) => {
                   const event = row.events.find((item) => item.dueDate.getMonth() === month)
                   const colorClass =
-                    event?.type === "income" ? "bg-[#345fe1]" : row.isFixed ? "bg-amber-500" : "bg-red-500"
+                    event?.type === "income" ? "bg-[#345fe1]" : row.category.includes("固定") ? "bg-amber-500" : "bg-red-500"
                   return (
                     <button
                       key={`${row.id}-${month}`}
@@ -1137,7 +950,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                     <p className="text-muted-foreground text-xs">請求月 / 種別</p>
                     <p className="font-semibold">
                       {selectedEvent.invoiceMonth + 1}月請求 ｜{" "}
-                      {selectedEvent.type === "income" ? "入金" : selectedEvent.isFixed ? "固定費" : "支払い"}
+                      {selectedEvent.type === "income" ? "入金" : selectedEvent.category.includes("固定") ? "固定費" : "支払い"}
                     </p>
                   </div>
                   <div>
@@ -1147,7 +960,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                         "text-lg font-bold",
                         selectedEvent.type === "income"
                           ? "text-[#345fe1]"
-                          : selectedEvent.isFixed
+                          : selectedEvent.category.includes("固定")
                             ? "text-amber-700"
                             : "text-red-600",
                       )}

@@ -208,17 +208,106 @@ async function main() {
   }
   console.log(`✓ ProductCategory`)
 
-  // ── FixedCost ─────────────────────────────────────────────────────────────────
-  const fixedCostSeed = [
-    { id: "fc000001-0000-0000-0000-000000000001", name: "家賃",            amountYen: 980000,  dueDay: 25, sortOrder: 0 },
-    { id: "fc000001-0000-0000-0000-000000000002", name: "人件費",          amountYen: 4200000, dueDay: 25, sortOrder: 1 },
-    { id: "fc000001-0000-0000-0000-000000000003", name: "物流費",          amountYen: 620000,  dueDay: 20, sortOrder: 2 },
-    { id: "fc000001-0000-0000-0000-000000000004", name: "SaaS / システム", amountYen: 180000,  dueDay: 15, sortOrder: 3 },
+  // ── RecurringEntry（固定費） ───────────────────────────────────────────────────
+  const recurringEntrySeed = [
+    { id: "fc000001-0000-0000-0000-000000000001", description: "家賃",            amountYen: BigInt(980000),  flow: "expense" as const, category: "固定費", dueDay: 25, sortOrder: 0 },
+    { id: "fc000001-0000-0000-0000-000000000002", description: "人件費",          amountYen: BigInt(4200000), flow: "expense" as const, category: "固定費", dueDay: 25, sortOrder: 1 },
+    { id: "fc000001-0000-0000-0000-000000000003", description: "物流費",          amountYen: BigInt(620000),  flow: "expense" as const, category: "固定費", dueDay: 20, sortOrder: 2 },
+    { id: "fc000001-0000-0000-0000-000000000004", description: "SaaS / システム", amountYen: BigInt(180000),  flow: "expense" as const, category: "固定費", dueDay: 15, sortOrder: 3 },
   ]
-  for (const fc of fixedCostSeed) {
-    await prisma.fixedCost.upsert({ where: { id: fc.id }, update: {}, create: fc })
+  for (const re of recurringEntrySeed) {
+    await prisma.recurringEntry.upsert({ where: { id: re.id }, update: {}, create: re })
   }
-  console.log(`✓ FixedCost`)
+  console.log(`✓ RecurringEntry（固定費）`)
+
+  // ── BusinessPartner（ガントチャート取引先） ────────────────────────────────────
+  const ganttPartnerDefs = [
+    { id: "b0000010-0000-0000-0000-000000000001", name: "南青山セレクト" },
+    { id: "b0000010-0000-0000-0000-000000000002", name: "北陸百貨店" },
+    { id: "b0000010-0000-0000-0000-000000000003", name: "九州チェーン" },
+    { id: "b0000010-0000-0000-0000-000000000004", name: "ECプラットフォーム" },
+    { id: "b0000010-0000-0000-0000-000000000005", name: "その他取引先120社" },
+    { id: "b0000010-0000-0000-0000-000000000006", name: "大阪繊維" },
+    { id: "b0000010-0000-0000-0000-000000000007", name: "京都染工" },
+    { id: "b0000010-0000-0000-0000-000000000008", name: "東京物流パートナー" },
+    { id: "b0000010-0000-0000-0000-000000000009", name: "ベトナム工場A" },
+  ]
+  for (const p of ganttPartnerDefs) {
+    await prisma.businessPartner.upsert({ where: { id: p.id }, update: {}, create: p })
+  }
+  console.log(`✓ BusinessPartner（ガント用 ${ganttPartnerDefs.length}件）`)
+
+  // ── RecurringEntry（取引先スケジュール） ──────────────────────────────────────
+  const ganttEntrySeed = [
+    {
+      id: "e0000010-0000-0000-0000-000000000001",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000001",
+      description: "主要卸先（30日締め）",
+      amountYen: BigInt(3200000), flow: "income" as const,
+      category: "売掛入金", cycle: "当月末払い", offsetMonths: 0, dueDay: 28, seasonality: [],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000002",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000002",
+      description: "百貨店PB",
+      amountYen: BigInt(2100000), flow: "income" as const,
+      category: "売掛入金", cycle: "翌月末払い", offsetMonths: 1, dueDay: 30, seasonality: [],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000003",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000003",
+      description: "ロイヤリティ連動型",
+      amountYen: BigInt(1650000), flow: "income" as const,
+      category: "売掛入金", cycle: "翌々月15日払い", offsetMonths: 2, dueDay: 15, seasonality: [],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000004",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000004",
+      description: "カード決済入金",
+      amountYen: BigInt(900000), flow: "income" as const,
+      category: "EC入金", cycle: "当月15日払い", offsetMonths: 0, dueDay: 15, seasonality: [],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000005",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000005",
+      description: "スポット/小口まとめ",
+      amountYen: BigInt(2400000), flow: "income" as const,
+      category: "売掛入金", cycle: "翌月25日払い", offsetMonths: 1, dueDay: 25,
+      seasonality: [1, 1.02, 0.95, 1.08, 1.1, 1.12, 1.2, 1.18, 1.05, 1, 0.96, 0.98],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000006",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000006",
+      description: "生地仕入れ",
+      amountYen: BigInt(1180000), flow: "expense" as const,
+      category: "仕入支払い", cycle: "翌月15日払い", offsetMonths: 1, dueDay: 15, seasonality: [],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000007",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000007",
+      description: "加工・染色",
+      amountYen: BigInt(760000), flow: "expense" as const,
+      category: "仕入支払い", cycle: "翌々月末払い", offsetMonths: 2, dueDay: 30, seasonality: [],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000008",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000008",
+      description: "物流・倉庫",
+      amountYen: BigInt(430000), flow: "expense" as const,
+      category: "物流/システム", cycle: "当月末払い", offsetMonths: 0, dueDay: 25, seasonality: [],
+    },
+    {
+      id: "e0000010-0000-0000-0000-000000000009",
+      businessPartnerId: "b0000010-0000-0000-0000-000000000009",
+      description: "OEM仕入れ",
+      amountYen: BigInt(1350000), flow: "expense" as const,
+      category: "仕入支払い", cycle: "翌月末払い", offsetMonths: 1, dueDay: 30, seasonality: [],
+    },
+  ]
+  for (const re of ganttEntrySeed) {
+    await prisma.recurringEntry.upsert({ where: { id: re.id }, update: {}, create: re })
+  }
+  console.log(`✓ RecurringEntry（取引先スケジュール ${ganttEntrySeed.length}件）`)
 
   // ── ReservePolicy ─────────────────────────────────────────────────────────────
   const reservePolicySeed = [
@@ -412,12 +501,22 @@ async function main() {
   // バリアント単位で作成し、product_code → product → category のJOINが機能する
   // 2026年は前年比 +5% 成長を反映
   // ──────────────────────────────────────────────────────────────────────────────
-  const salesRows: Parameters<typeof prisma.salesFact.createMany>[0]["data"] = []
+
+  // ブランド → 得意先マッピング
+  const BRAND_TO_CUSTOMER: Record<string, { code: string; name: string }> = {
+    "UrbanLine":  { code: "C01", name: "南青山セレクト" },
+    "LuxeCoat":   { code: "C02", name: "北陸百貨店" },
+    "ActiveGear": { code: "C03", name: "東京ファッション" },
+    "RelaxWear":  { code: "C04", name: "阪神商事" },
+  }
+
+  const salesRows: NonNullable<Parameters<typeof prisma.salesFact.createMany>[0]>["data"] = []
 
   for (const p of PRODUCTS_DEF) {
     const nVariants = p.variants.length
     const basePerVariant = Math.round(p.baseMo / nVariants)
     const unitPrice = p.price
+    const customer = BRAND_TO_CUSTOMER[p.brand] ?? { code: "C99", name: "その他" }
 
     for (const v of p.variants) {
       for (const [year, month] of SALES_MONTHS) {
@@ -427,6 +526,8 @@ async function main() {
         const grossProfitYen = BigInt(Math.round(netQty * unitPrice * p.gpRate))
         salesRows.push({
           importId: year === 2025 ? SALES_2025_ID : SALES_2026_ID,
+          customerCategory1Code: customer.code,
+          customerCategory1Name: customer.name,
           brandCode: p.bCode,
           brandName: p.brand,
           itemCode: p.iCode,
@@ -461,7 +562,7 @@ async function main() {
   //   - closing_yen  = closing_qty × 売価 (retail price ベース)
   //     ※ net_sales_yen も売価ベースなので回転率計算のベースを統一
   // ──────────────────────────────────────────────────────────────────────────────
-  const snapRows: Parameters<typeof prisma.inventorySnapshotFact.createMany>[0]["data"] = []
+  const snapRows: NonNullable<Parameters<typeof prisma.inventorySnapshotFact.createMany>[0]>["data"] = []
 
   for (const p of PRODUCTS_DEF) {
     const nVariants = p.variants.length
@@ -566,13 +667,16 @@ async function main() {
     })
 
     // SalesFact (2025-12, 2026-01, 2026-02 — velocity計算の対象期間)
+    const alertCustomer = BRAND_TO_CUSTOMER[s.brandName] ?? { code: "C99", name: "その他" }
     const salesMonths = [[2025, 12], [2026, 1], [2026, 2]] as const
     for (let i = 0; i < salesMonths.length; i++) {
       const [year, month] = salesMonths[i]
       const netQty = s.monthlySales[i]
       await prisma.salesFact.create({
         data: {
-          importId: year === 2025 ? ALERT_SALES_ID : ALERT_SALES_ID,
+          importId: ALERT_SALES_ID,
+          customerCategory1Code: alertCustomer.code,
+          customerCategory1Name: alertCustomer.name,
           brandCode: s.productCode.startsWith("SKU") ? s.productCode : "BR00",
           brandName: s.brandName,
           itemCode: s.productCode,

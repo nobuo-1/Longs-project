@@ -2,7 +2,7 @@
 
 import * as settingsService from "@/src/services/settings-service"
 
-export type { CategoryDTO, FixedCostDTO, ReservePolicyDTO } from "@/src/services/settings-service"
+export type { CategoryDTO, RecurringEntryDTO, ReservePolicyDTO } from "@/src/services/settings-service"
 
 export async function getCategoriesAction(): Promise<
   { success: true; data: settingsService.CategoryDTO[] } | { success: false; error: string }
@@ -96,33 +96,33 @@ export async function deleteCategoryAction(
   }
 }
 
-// ── 固定費 ────────────────────────────────────────────────────────────────────
+// ── 固定費（RecurringEntry） ───────────────────────────────────────────────────
 
-export async function getFixedCostsAction(): Promise<
-  { success: true; data: settingsService.FixedCostDTO[] } | { success: false; error: string }
+export async function getRecurringEntriesAction(): Promise<
+  { success: true; data: settingsService.RecurringEntryDTO[] } | { success: false; error: string }
 > {
   try {
-    const data = await settingsService.getFixedCosts()
+    const data = await settingsService.getRecurringEntries()
     return { success: true, data }
   } catch (e) {
-    console.error("[getFixedCostsAction]", e)
+    console.error("[getRecurringEntriesAction]", e)
     return { success: false, error: "固定費の取得に失敗しました" }
   }
 }
 
-export async function saveFixedCostsAction(
-  items: Array<{ id?: string; name: string; amountYen: number; dueDay: number }>,
-): Promise<{ success: true; data: settingsService.FixedCostDTO[] } | { success: false; error: string }> {
+export async function saveRecurringEntriesAction(
+  items: Array<{ id?: string; description: string; amountYen: number; dueDay: number }>,
+): Promise<{ success: true; data: settingsService.RecurringEntryDTO[] } | { success: false; error: string }> {
   try {
     for (const item of items) {
-      if (!item.name.trim()) return { success: false, error: "項目名を入力してください" }
+      if (!item.description.trim()) return { success: false, error: "項目名を入力してください" }
       if (item.amountYen < 0) return { success: false, error: "金額は0以上で入力してください" }
       if (item.dueDay < 1 || item.dueDay > 31) return { success: false, error: "支払日は1〜31で入力してください" }
     }
-    const data = await settingsService.saveFixedCosts(items)
+    const data = await settingsService.saveRecurringEntries(items)
     return { success: true, data }
   } catch (e) {
-    console.error("[saveFixedCostsAction]", e)
+    console.error("[saveRecurringEntriesAction]", e)
     return { success: false, error: "固定費の保存に失敗しました" }
   }
 }

@@ -35,9 +35,9 @@ import {
   type UnknownItemInfo,
 } from "@/src/actions/data-actions"
 import {
-  getFixedCostsAction,
-  saveFixedCostsAction,
-  type FixedCostDTO,
+  getRecurringEntriesAction,
+  saveRecurringEntriesAction,
+  type RecurringEntryDTO,
 } from "@/src/actions/settings-actions"
 import {
   getSuppliersAction,
@@ -48,7 +48,7 @@ import {
   type CustomerDTO,
 } from "@/src/actions/partner-actions"
 
-type FixedCostDraftRow = Omit<FixedCostDTO, "id"> & { _key: string; id?: string }
+type RecurringEntryDraftRow = Omit<RecurringEntryDTO, "id"> & { _key: string; id?: string }
 
 type HistoryDialogState = {
   datasetId: string
@@ -141,8 +141,8 @@ export function DataRegistration() {
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
 
   // ── 固定費状態 ────────────────────────────────────────────────────────────
-  const [fixedCosts, setFixedCosts] = useState<FixedCostDTO[]>([])
-  const [fixedCostsDraft, setFixedCostsDraft] = useState<FixedCostDraftRow[]>([])
+  const [fixedCosts, setFixedCosts] = useState<RecurringEntryDTO[]>([])
+  const [fixedCostsDraft, setFixedCostsDraft] = useState<RecurringEntryDraftRow[]>([])
   const [isFixedEditing, setIsFixedEditing] = useState(false)
   const [fixedLoading, setFixedLoading] = useState(true)
   const [fixedSaving, setFixedSaving] = useState(false)
@@ -159,7 +159,7 @@ export function DataRegistration() {
 
   useEffect(() => {
     ;(async () => {
-      const res = await getFixedCostsAction()
+      const res = await getRecurringEntriesAction()
       if (res.success) setFixedCosts(res.data)
       setFixedLoading(false)
     })()
@@ -182,8 +182,8 @@ export function DataRegistration() {
   const handleFixedSave = async () => {
     setFixedSaving(true)
     setFixedError(null)
-    const items = fixedCostsDraft.map((i) => ({ id: i.id, name: i.name, amountYen: i.amountYen, dueDay: i.dueDay }))
-    const res = await saveFixedCostsAction(items)
+    const items = fixedCostsDraft.map((i) => ({ id: i.id, description: i.description ?? "", amountYen: i.amountYen, dueDay: i.dueDay }))
+    const res = await saveRecurringEntriesAction(items)
     setFixedSaving(false)
     if (res.success) {
       setFixedCosts(res.data)
@@ -198,7 +198,7 @@ export function DataRegistration() {
     setIsFixedEditing(false)
   }
   const handleAddFixedCost = () => {
-    setFixedCostsDraft((prev) => [...prev, { _key: `new-${Date.now()}`, name: "新規項目", amountYen: 0, dueDay: 25, sortOrder: prev.length }])
+    setFixedCostsDraft((prev) => [...prev, { _key: `new-${Date.now()}`, description: "新規項目", amountYen: 0, category: "固定費", dueDay: 25, sortOrder: prev.length }])
   }
 
   const fetchHistory = async () => {
@@ -469,19 +469,19 @@ export function DataRegistration() {
               {fixedError && <p className="text-xs text-red-500 mb-3">{fixedError}</p>}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {(isFixedEditing ? fixedCostsDraft : fixedCosts).map((item, index) => (
-                  <div key={isFixedEditing ? (item as FixedCostDraftRow)._key : item.id} className="p-4 border border-border rounded-lg space-y-3">
+                  <div key={isFixedEditing ? (item as RecurringEntryDraftRow)._key : item.id} className="p-4 border border-border rounded-lg space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       {isFixedEditing ? (
                         <Input
-                          value={fixedCostsDraft[index].name}
+                          value={fixedCostsDraft[index].description ?? ""}
                           onChange={(e) =>
                             setFixedCostsDraft((prev) =>
-                              prev.map((cost, idx) => (idx === index ? { ...cost, name: e.target.value } : cost)),
+                              prev.map((cost, idx) => (idx === index ? { ...cost, description: e.target.value } : cost)),
                             )
                           }
                         />
                       ) : (
-                        <p className="text-sm font-semibold">{item.name}</p>
+                        <p className="text-sm font-semibold">{item.description}</p>
                       )}
                       {isFixedEditing && (
                         <Button
@@ -510,7 +510,7 @@ export function DataRegistration() {
                           />
                         ) : (
                           <p className="text-lg font-bold text-foreground">
-                            {new Intl.NumberFormat("ja-JP").format((item as FixedCostDTO).amountYen)} 円
+                            {new Intl.NumberFormat("ja-JP").format((item as RecurringEntryDTO).amountYen)} 円
                           </p>
                         )}
                       </div>
@@ -527,7 +527,7 @@ export function DataRegistration() {
                             }
                           />
                         ) : (
-                          <p className="text-lg font-bold text-foreground">{(item as FixedCostDTO).dueDay} 日</p>
+                          <p className="text-lg font-bold text-foreground">{(item as RecurringEntryDTO).dueDay} 日</p>
                         )}
                       </div>
                     </div>

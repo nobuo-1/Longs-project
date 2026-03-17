@@ -128,16 +128,6 @@ model ReservePolicy {
   @@map("reserve_policy")
 }
 
-model FixedCost {
-   id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-   name      String
-   amountYen Int     @map("amount_yen")
-   dueDay    Int     @map("due_day")
-   sortOrder Int     @default(0) @map("sort_order")
-   isActive  Boolean @default(true) @map("is_active")
-
-   @@map("fixed_cost")
-}
 
 model SystemSetting {
   key       String   @id
@@ -297,8 +287,9 @@ model BusinessPartner {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
-  supplier Supplier?
-  customer Customer?
+  supplier         Supplier?
+  customer         Customer?
+  recurringEntries RecurringEntry[]
 
   @@map("business_partner")
 }
@@ -333,73 +324,46 @@ model Customer {
 // 財務管理
 // ============================================================
 
-model Counterparty {
-  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name String
-  type String @default("other")
+model RecurringEntry {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessPartnerId String?   @map("business_partner_id") @db.Uuid
+  description       String?
+  amountYen         BigInt    @map("amount_yen")
+  flow              FlowType
+  category          String
+  cycle             String?
+  offsetMonths      Int       @default(0) @map("offset_months")
+  dueDay            Int       @map("due_day")
+  seasonality       Decimal[] @db.Decimal
+  sortOrder         Int       @default(0) @map("sort_order")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz()
 
-  financeSchedules FinanceSchedule[]
+  businessPartner BusinessPartner?       @relation(fields: [businessPartnerId], references: [id])
+  tagMaps         RecurringEntryTagMap[]
 
-  @@map("counterparty")
+  @@index([businessPartnerId])
+  @@map("recurring_entry")
 }
 
-model FinanceSchedule {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  counterpartyId String?   @map("counterparty_id") @db.Uuid
-  description    String?
-  amountYen      BigInt    @map("amount_yen")
-  flow           FlowType
-  category       String
-  cycle          String?
-  offsetMonths   Int       @default(0) @map("offset_months")
-  dueDay         Int       @map("due_day")
-  seasonality    Decimal[] @db.Decimal
-  isFixed        Boolean   @default(false) @map("is_fixed")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-
-  counterparty Counterparty?           @relation(fields: [counterpartyId], references: [id])
-  events       FinanceEvent[]
-  tagMaps      FinanceScheduleTagMap[]
-
-  @@index([counterpartyId])
-  @@map("finance_schedule")
-}
-
-model FinanceScheduleTag {
+model RecurringEntryTag {
   id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name String @unique
 
-  tagMaps FinanceScheduleTagMap[]
+  tagMaps RecurringEntryTagMap[]
 
-  @@map("finance_schedule_tag")
+  @@map("recurring_entry_tag")
 }
 
-model FinanceScheduleTagMap {
-  scheduleId String @map("schedule_id") @db.Uuid
-  tagId      String @map("tag_id") @db.Uuid
+model RecurringEntryTagMap {
+  entryId String @map("entry_id") @db.Uuid
+  tagId   String @map("tag_id") @db.Uuid
 
-  schedule FinanceSchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  tag      FinanceScheduleTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  entry RecurringEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag   RecurringEntryTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@id([scheduleId, tagId])
-  @@map("finance_schedule_tag_map")
-}
-
-model FinanceEvent {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  scheduleId   String?   @map("schedule_id") @db.Uuid
-  dueDate      DateTime  @map("due_date") @db.Date
-  amountYen    BigInt    @map("amount_yen")
-  flow         FlowType
-  category     String?
-  status       String    @default("planned")
-  actualPaidAt DateTime? @map("actual_paid_at") @db.Date
-  note         String?
-
-  schedule FinanceSchedule? @relation(fields: [scheduleId], references: [id])
-
-  @@index([dueDate])
-  @@map("finance_event")
+  @@id([entryId, tagId])
+  @@map("recurring_entry_tag_map")
 }
 
 // ============================================================
