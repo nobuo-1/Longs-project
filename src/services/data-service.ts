@@ -209,6 +209,34 @@ export async function importData(
       factRows.push(converted)
     }
 
+    // 4-2. 取引先マスタ事前 upsert + businessPartnerId / periodYm をファクト行に付与
+    if (factRows.length > 0 && (dbDataset === "sales" || dbDataset === "payables" || dbDataset === "receivables")) {
+      try {
+        const nameToPartnerId = await upsertPartnerMaster(factRows, dbDataset)
+        const periodYm =
+          dbDataset === "payables" || dbDataset === "receivables" ? inferPeriodYm(fileName) : null
+        for (const row of factRows) {
+          const name =
+            dbDataset === "sales"
+              ? (row.customerCategory1Name as string)
+              : dbDataset === "payables"
+                ? (row.vendorName as string)
+                : (row.customerName as string)
+          if (name) {
+            const partnerId = nameToPartnerId.get(name)
+            if (partnerId) row.businessPartnerId = partnerId
+          }
+          if (periodYm) row.periodYm = periodYm
+        }
+      } catch (e) {
+        issues.push({
+          level: "warning",
+          message: `取引先マスタの更新に失敗しました: ${e instanceof Error ? e.message : String(e)}`,
+          rowNumber: 0,
+        })
+      }
+    }
+
     // 5. ファクトテーブルに bulk insert
     let rowsSuccess = 0
     let insertErrors = 0
@@ -239,19 +267,6 @@ export async function importData(
         issues.push({
           level: "warning",
           message: `商品マスタの更新に失敗しました: ${e instanceof Error ? e.message : String(e)}`,
-          rowNumber: 0,
-        })
-      }
-    }
-
-    // 5-2. 取引先マスタ自動 upsert（sales / payables / receivables）
-    if (rowsSuccess > 0 && (dbDataset === "sales" || dbDataset === "payables" || dbDataset === "receivables")) {
-      try {
-        await upsertPartnerMaster(factRows, dbDataset)
-      } catch (e) {
-        issues.push({
-          level: "warning",
-          message: `取引先マスタの更新に失敗しました: ${e instanceof Error ? e.message : String(e)}`,
           rowNumber: 0,
         })
       }
@@ -557,17 +572,16 @@ async function upsertProductMaster(
 }
 
 /**
- * payables / receivables のインポート行から BusinessPartner + Supplier/Customer を自動 upsert する
- * - BusinessPartner は name で検索し、なければ新規作成
- * - payables → vendor_name → Supplier
- * - receivables → customer_name → Customer
+ * payables / receivables / sales のインポート行から BusinessPartner + Supplier/Customer を自動 upsert する。
+ * 戻り値: 取引先名 → businessPartnerId のマップ（ファクト行への付与に使用）
  */
 async function upsertPartnerMaster(
   factRows: Record<string, unknown>[],
   dataset: "sales" | "payables" | "receivables",
-): Promise<void> {
+): Promise<Map<string, string>> {
+  const nameToId = new Map<string, string>()
+
   if (dataset === "sales") {
-    // sales: customerCategory1Name → BusinessPartner + Customer
     const names = [...new Set(factRows.map((r) => r.customerCategory1Name as string).filter(Boolean))]
     for (const name of names) {
       const existing = await prisma.businessPartner.findFirst({ where: { name } })
@@ -579,6 +593,7 @@ async function upsertPartnerMaster(
         create: { businessPartnerId: partnerId },
         update: {},
       })
+      nameToId.set(name, partnerId)
     }
   } else if (dataset === "payables") {
     const vendorNames = [...new Set(factRows.map((r) => r.vendorName as string).filter(Boolean))]
@@ -592,6 +607,7 @@ async function upsertPartnerMaster(
         create: { businessPartnerId: partnerId },
         update: {},
       })
+      nameToId.set(name, partnerId)
     }
   } else {
     const customerNames = [...new Set(factRows.map((r) => r.customerName as string).filter(Boolean))]
@@ -605,8 +621,31 @@ async function upsertPartnerMaster(
         create: { businessPartnerId: partnerId },
         update: {},
       })
+      nameToId.set(name, partnerId)
     }
   }
+
+  return nameToId
+}
+
+/**
+ * ファイル名から period_ym (月初日) を推定する。
+ * 例: "payables_2026-02.csv" → 2026-02-01
+ * 判定不能な場合は imported_at の前月を返す。
+ */
+function inferPeriodYm(fileName: string | null): Date {
+  if (fileName) {
+    const match = fileName.match(/(\d{4})[-_.]?(\d{2})/)
+    if (match) {
+      const year = parseInt(match[1])
+      const month = parseInt(match[2])
+      if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12) {
+        return new Date(`${year}-${String(month).padStart(2, "0")}-01`)
+      }
+    }
+  }
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth() - 1, 1)
 }
 
 /** インポート履歴一覧（削除済み除く）*/
@@ -864,6 +903,114 @@ export async function exportDatasetCsv(params: { dataset: string; search?: strin
   )
 
   return generateCsv(headers, dataRows)
+}
+
+// ===== 在庫AIデータハブ向け =====
+
+export type PeriodOption = "3m" | "6m" | "1y"
+
+export type SalesHubRow = {
+  id: string
+  customerCategory1Name: string | null
+  brandName: string | null
+  itemName: string | null
+  productName1: string | null
+  staffName: string | null
+  periodYm: string | null
+  netQty: number | null
+  netSalesYen: number | null
+  grossProfitYen: number | null
+  grossProfitRate: number | null
+}
+
+export type PayablesHubRow = {
+  id: string
+  vendorShort: string | null
+  prevBalanceYen: number | null
+  paymentYen: number | null
+  netPurchaseYen: number | null
+  purchaseTaxInYen: number | null
+  monthEndBalanceYen: number | null
+}
+
+export type ReceivablesHubRow = {
+  id: string
+  customerShort: string | null
+  staffName: string | null
+  receivedYen: number | null
+  netSalesYen: number | null
+  salesTaxInYen: number | null
+  monthEndBalanceYen: number | null
+  creditLimitBalanceYen: number | null
+}
+
+export type InventoryHubData = {
+  sales: SalesHubRow[]
+  payables: PayablesHubRow[]
+  receivables: ReceivablesHubRow[]
+}
+
+function getPeriodStartDate(period: PeriodOption): Date {
+  const now = new Date()
+  const monthsBack = period === "3m" ? 3 : period === "6m" ? 6 : 12
+  return new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1)
+}
+
+export async function getInventoryHubData(period: PeriodOption): Promise<InventoryHubData> {
+  const startDate = getPeriodStartDate(period)
+
+  const [salesRows, payablesRows, receivablesRows] = await Promise.all([
+    prisma.salesFact.findMany({
+      where: { deletedAt: null, periodYm: { gte: startDate } },
+      orderBy: { periodYm: "desc" },
+      take: 300,
+    }),
+    prisma.payablesFact.findMany({
+      where: { deletedAt: null, periodYm: { gte: startDate } },
+      orderBy: { periodYm: "desc" },
+      take: 300,
+    }),
+    prisma.receivablesFact.findMany({
+      where: { deletedAt: null, periodYm: { gte: startDate } },
+      orderBy: { periodYm: "desc" },
+      take: 300,
+    }),
+  ])
+
+  return {
+    sales: salesRows.map((r) => ({
+      id: r.id,
+      customerCategory1Name: r.customerCategory1Name,
+      brandName: r.brandName,
+      itemName: r.itemName,
+      productName1: r.productName1,
+      staffName: r.staffName,
+      periodYm: r.periodYm ? r.periodYm.toISOString().slice(0, 7) : null,
+      netQty: r.netQty,
+      netSalesYen: r.netSalesYen !== null ? Number(r.netSalesYen) : null,
+      grossProfitYen: r.grossProfitYen !== null ? Number(r.grossProfitYen) : null,
+      grossProfitRate: r.grossProfitRate !== null ? Number(r.grossProfitRate) : null,
+    })),
+    payables: payablesRows.map((r) => ({
+      id: r.id,
+      vendorShort: r.vendorShort,
+      prevBalanceYen: r.prevBalanceYen !== null ? Number(r.prevBalanceYen) : null,
+      paymentYen: r.paymentYen !== null ? Number(r.paymentYen) : null,
+      netPurchaseYen: r.netPurchaseYen !== null ? Number(r.netPurchaseYen) : null,
+      purchaseTaxInYen: r.purchaseTaxInYen !== null ? Number(r.purchaseTaxInYen) : null,
+      monthEndBalanceYen: r.monthEndBalanceYen !== null ? Number(r.monthEndBalanceYen) : null,
+    })),
+    receivables: receivablesRows.map((r) => ({
+      id: r.id,
+      customerShort: r.customerShort,
+      staffName: r.staffName,
+      receivedYen: r.receivedYen !== null ? Number(r.receivedYen) : null,
+      netSalesYen: r.netSalesYen !== null ? Number(r.netSalesYen) : null,
+      salesTaxInYen: r.salesTaxInYen !== null ? Number(r.salesTaxInYen) : null,
+      monthEndBalanceYen: r.monthEndBalanceYen !== null ? Number(r.monthEndBalanceYen) : null,
+      creditLimitBalanceYen: r.creditLimitBalanceYen !== null ? Number(r.creditLimitBalanceYen) : null,
+    })),
+  }
 }
 
 /** dataset別のインポート履歴（dataset別にグルーピングして返す） */

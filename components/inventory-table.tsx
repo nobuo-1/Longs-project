@@ -1,273 +1,291 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Search, Download } from "lucide-react"
+import { Fragment, useEffect, useMemo, useState } from "react"
+import { Search, Download, ChevronRight, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { getInventoryHubDataAction } from "@/src/actions/finance-actions"
+import type { InventoryHubData } from "@/src/actions/finance-actions"
 
-type ColumnDef = {
-  key: string
-  label: string
-  align?: "right"
-}
- 
-type DataView = {
-  key: "sales" | "payables" | "receivables"
-  label: string
-  description: string
-  columns: ColumnDef[]
-  data: Array<Record<string, string | number>>
-  totals?: { label: string; key: string; prefix?: string }[]
+type PeriodOption = "3m" | "6m" | "1y"
+
+const PERIOD_LABELS: Record<PeriodOption, string> = {
+  "3m": "直近3ヶ月",
+  "6m": "直近6ヶ月",
+  "1y": "直近1年",
 }
 
-const dataViews: DataView[] = [
-  {
-    key: "sales",
-    label: "売上・粗利 (得意先/ブランド軸)",
-    description: "得意先分類・ブランド・アイテム軸で純売上数量から粗利率まで確認",
-    columns: [
-      { key: "得意先分類1名", label: "得意先分類1名" },
-      { key: "ブランド名", label: "ブランド名" },
-      { key: "アイテム名", label: "アイテム名" },
-      { key: "商品名1", label: "商品名1" },
-      { key: "担当者名", label: "担当者" },
-      { key: "実績年月", label: "実績年月" },
-      { key: "純売上数量", label: "純売上数量", align: "right" },
-      { key: "純売上金額", label: "純売上金額", align: "right" },
-      { key: "粗利金額", label: "粗利金額", align: "right" },
-      { key: "粗利率", label: "粗利率(%)", align: "right" },
-    ],
-    data: [
-      {
-        得意先分類1名: "セレクトA",
-        ブランド名: "UrbanLine",
-        アイテム名: "トップス",
-        商品名1: "コットンTシャツ",
-        担当者名: "佐藤",
-        実績年月: "2024-04",
-        純売上数量: 340,
-        純売上金額: 1320000,
-        粗利金額: 462000,
-        粗利率: 35.0,
-      },
-      {
-        得意先分類1名: "百貨店B",
-        ブランド名: "LuxeCoat",
-        アイテム名: "アウター",
-        商品名1: "ウールコート",
-        担当者名: "山本",
-        実績年月: "2024-04",
-        純売上数量: 120,
-        純売上金額: 2980000,
-        粗利金額: 894000,
-        粗利率: 30.0,
-      },
-      {
-        得意先分類1名: "ECモール",
-        ブランド名: "BasicWear",
-        アイテム名: "トップス",
-        商品名1: "リブタンク",
-        担当者名: "田中",
-        実績年月: "2024-04",
-        純売上数量: 520,
-        純売上金額: 980000,
-        粗利金額: 343000,
-        粗利率: 35.0,
-      },
-      {
-        得意先分類1名: "専門店C",
-        ブランド名: "DenimCo",
-        アイテム名: "ボトムス",
-        商品名1: "デニムパンツ",
-        担当者名: "森",
-        実績年月: "2024-04",
-        純売上数量: 210,
-        純売上金額: 890000,
-        粗利金額: 267000,
-        粗利率: 30.0,
-      },
-    ],
-    totals: [
-      { label: "純売上金額合計", key: "純売上金額", prefix: "¥" },
-      { label: "粗利金額合計", key: "粗利金額", prefix: "¥" },
-    ],
-  },
-  {
-    key: "payables",
-    label: "仕入・支払 (支払先別)",
-    description: "支払先別に支払額・税込仕入・当月末残高を把握",
-    columns: [
-      { key: "支払先略称", label: "支払先" },
-      { key: "前月末残高", label: "前月末残高", align: "right" },
-      { key: "支払額", label: "支払額", align: "right" },
-      { key: "純仕入金額", label: "純仕入金額", align: "right" },
-      { key: "税込仕入金額", label: "税込仕入金額", align: "right" },
-      { key: "当月末残高", label: "当月末残高", align: "right" },
-    ],
-    data: [
-      {
-        支払先略称: "大阪繊維",
-        前月末残高: 820000,
-        支払額: 1180000,
-        純仕入金額: 1250000,
-        税込仕入金額: 1375000,
-        当月末残高: 940000,
-      },
-      {
-        支払先略称: "京都染工",
-        前月末残高: 540000,
-        支払額: 760000,
-        純仕入金額: 820000,
-        税込仕入金額: 902000,
-        当月末残高: 600000,
-      },
-      {
-        支払先略称: "東京物流",
-        前月末残高: 220000,
-        支払額: 430000,
-        純仕入金額: 450000,
-        税込仕入金額: 495000,
-        当月末残高: 240000,
-      },
-      {
-        支払先略称: "ベトナム工場A",
-        前月末残高: 980000,
-        支払額: 1350000,
-        純仕入金額: 1400000,
-        税込仕入金額: 1540000,
-        当月末残高: 1030000,
-      },
-    ],
-    totals: [
-      { label: "支払額合計", key: "支払額", prefix: "¥" },
-      { label: "税込仕入金額合計", key: "税込仕入金額", prefix: "¥" },
-    ],
-  },
-  {
-    key: "receivables",
-    label: "請求・入金 (請求先別)",
-    description: "請求先別に入金額・税込売上・残高・与信を確認",
-    columns: [
-      { key: "請求先略称", label: "請求先" },
-      { key: "担当者", label: "担当者" },
-      { key: "入金額", label: "入金額", align: "right" },
-      { key: "純売上金額", label: "純売上金額", align: "right" },
-      { key: "税込売上金額", label: "税込売上金額", align: "right" },
-      { key: "当月末残高", label: "当月末残高", align: "right" },
-      { key: "与信枠残高", label: "与信枠残高", align: "right" },
-    ],
-    data: [
-      {
-        請求先略称: "南青山セレクト",
-        担当者: "佐藤",
-        入金額: 3200000,
-        純売上金額: 3450000,
-        税込売上金額: 3795000,
-        当月末残高: 210000,
-        与信枠残高: 1800000,
-      },
-      {
-        請求先略称: "北陸百貨店",
-        担当者: "田中",
-        入金額: 2100000,
-        純売上金額: 2280000,
-        税込売上金額: 2508000,
-        当月末残高: 420000,
-        与信枠残高: 1300000,
-      },
-      {
-        請求先略称: "九州チェーン",
-        担当者: "山本",
-        入金額: 1650000,
-        純売上金額: 1760000,
-        税込売上金額: 1936000,
-        当月末残高: 320000,
-        与信枠残高: 900000,
-      },
-      {
-        請求先略称: "ECプラットフォーム",
-        担当者: "森",
-        入金額: 900000,
-        純売上金額: 950000,
-        税込売上金額: 1045000,
-        当月末残高: 60000,
-        与信枠残高: 700000,
-      },
-    ],
-    totals: [
-      { label: "入金額合計", key: "入金額", prefix: "¥" },
-      { label: "税込売上金額合計", key: "税込売上金額", prefix: "¥" },
-    ],
-  },
-]
+// ─── 売上ツリー型 ────────────────────────────────────────
+type Agg = { netQty: number; netSalesYen: number; grossProfitYen: number }
 
-const formatNumber = (value: number, isPercent = false) =>
-  isPercent ? `${value.toFixed(1)}%` : new Intl.NumberFormat("ja-JP").format(value)
+type ProductNode = Agg & { name: string; grossProfitRate: number }
+type BrandNode   = Agg & { name: string; grossProfitRate: number; products: ProductNode[] }
+type CustomerNode = Agg & { name: string; grossProfitRate: number; brands: BrandNode[] }
 
-type InventoryTableProps = {
-  embedded?: boolean
+// ─── 集計済み行型 ────────────────────────────────────────
+type AggPayablesRow = {
+  vendorShort: string
+  prevBalanceYen: number
+  paymentYen: number
+  netPurchaseYen: number
+  purchaseTaxInYen: number
+  monthEndBalanceYen: number
 }
+
+type AggReceivablesRow = {
+  customerShort: string
+  staffName: string
+  receivedYen: number
+  netSalesYen: number
+  salesTaxInYen: number
+  monthEndBalanceYen: number
+  creditLimitBalanceYen: number
+}
+
+// ─── ヘルパー ────────────────────────────────────────────
+
+const calcRate = (a: Agg) =>
+  a.netSalesYen > 0 ? (a.grossProfitYen / a.netSalesYen) * 100 : 0
+
+function buildSalesTree(rows: InventoryHubData["sales"]): CustomerNode[] {
+  const customerMap = new Map<string, Map<string, Map<string, Agg>>>()
+
+  for (const r of rows) {
+    const customer = r.customerCategory1Name ?? "(不明)"
+    const brand    = r.brandName   ?? "(不明)"
+    const product  = r.productName1 ?? "(不明)"
+
+    if (!customerMap.has(customer)) customerMap.set(customer, new Map())
+    const brandMap = customerMap.get(customer)!
+    if (!brandMap.has(brand)) brandMap.set(brand, new Map())
+    const productMap = brandMap.get(brand)!
+
+    const ex = productMap.get(product)
+    if (ex) {
+      ex.netQty        += r.netQty        ?? 0
+      ex.netSalesYen   += r.netSalesYen   ?? 0
+      ex.grossProfitYen += r.grossProfitYen ?? 0
+    } else {
+      productMap.set(product, {
+        netQty:        r.netQty        ?? 0,
+        netSalesYen:   r.netSalesYen   ?? 0,
+        grossProfitYen: r.grossProfitYen ?? 0,
+      })
+    }
+  }
+
+  const sumAgg = (items: Agg[]): Agg =>
+    items.reduce((a, b) => ({
+      netQty:        a.netQty        + b.netQty,
+      netSalesYen:   a.netSalesYen   + b.netSalesYen,
+      grossProfitYen: a.grossProfitYen + b.grossProfitYen,
+    }), { netQty: 0, netSalesYen: 0, grossProfitYen: 0 })
+
+  return Array.from(customerMap.entries()).map(([customer, brandMap]) => {
+    const brands: BrandNode[] = Array.from(brandMap.entries()).map(([brand, productMap]) => {
+      const products: ProductNode[] = Array.from(productMap.entries()).map(([product, agg]) => ({
+        name: product, ...agg, grossProfitRate: calcRate(agg),
+      }))
+      const agg = sumAgg(products)
+      return { name: brand, ...agg, grossProfitRate: calcRate(agg), products }
+    })
+    const agg = sumAgg(brands)
+    return { name: customer, ...agg, grossProfitRate: calcRate(agg), brands }
+  })
+}
+
+/** 取引フロー金額はSUM、残高は最新月（先頭）の値を使用 */
+function aggregatePayables(rows: InventoryHubData["payables"]): AggPayablesRow[] {
+  const map = new Map<string, AggPayablesRow>()
+  for (const r of rows) {
+    const key = r.vendorShort ?? "(不明)"
+    const ex = map.get(key)
+    if (ex) {
+      ex.paymentYen      += r.paymentYen      ?? 0
+      ex.netPurchaseYen  += r.netPurchaseYen  ?? 0
+      ex.purchaseTaxInYen += r.purchaseTaxInYen ?? 0
+    } else {
+      map.set(key, {
+        vendorShort:       key,
+        prevBalanceYen:    r.prevBalanceYen    ?? 0,
+        paymentYen:        r.paymentYen        ?? 0,
+        netPurchaseYen:    r.netPurchaseYen    ?? 0,
+        purchaseTaxInYen:  r.purchaseTaxInYen  ?? 0,
+        monthEndBalanceYen: r.monthEndBalanceYen ?? 0,
+      })
+    }
+  }
+  return Array.from(map.values())
+}
+
+function aggregateReceivables(rows: InventoryHubData["receivables"]): AggReceivablesRow[] {
+  const map = new Map<string, AggReceivablesRow>()
+  for (const r of rows) {
+    const key = r.customerShort ?? "(不明)"
+    const ex = map.get(key)
+    if (ex) {
+      ex.receivedYen  += r.receivedYen  ?? 0
+      ex.netSalesYen  += r.netSalesYen  ?? 0
+      ex.salesTaxInYen += r.salesTaxInYen ?? 0
+    } else {
+      map.set(key, {
+        customerShort:        key,
+        staffName:            r.staffName            ?? "-",
+        receivedYen:          r.receivedYen          ?? 0,
+        netSalesYen:          r.netSalesYen          ?? 0,
+        salesTaxInYen:        r.salesTaxInYen        ?? 0,
+        monthEndBalanceYen:   r.monthEndBalanceYen   ?? 0,
+        creditLimitBalanceYen: r.creditLimitBalanceYen ?? 0,
+      })
+    }
+  }
+  return Array.from(map.values())
+}
+
+const fmt  = (n: number) => new Intl.NumberFormat("ja-JP").format(n)
+const fmtY = (n: number) => `¥${fmt(n)}`
+const fmtR = (n: number) => `${n.toFixed(1)}%`
+
+// ─── コンポーネント ──────────────────────────────────────
+type InventoryTableProps = { embedded?: boolean }
 
 export function InventoryTable({ embedded = false }: InventoryTableProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeView, setActiveView] = useState<DataView["key"]>("sales")
-  const [selectedDetail, setSelectedDetail] = useState<{
-    viewKey: DataView["key"]
-    row: Record<string, string | number>
-  } | null>(null)
+  const [period, setPeriod]   = useState<PeriodOption>("3m")
+  const [loading, setLoading] = useState(true)
+  const [hubData, setHubData] = useState<InventoryHubData | null>(null)
+  const [search,  setSearch]  = useState("")
+  const [activeView, setActiveView] = useState<"sales" | "payables" | "receivables">("sales")
+  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
+  const [expandedBrands,    setExpandedBrands]    = useState<Set<string>>(new Set())
 
-  const currentView = dataViews.find((v) => v.key === activeView) || dataViews[0]
+  // 期間変更でデータ取得
+  useEffect(() => {
+    setLoading(true)
+    getInventoryHubDataAction(period).then((res) => {
+      if (res.success) setHubData(res.data)
+      setLoading(false)
+    })
+  }, [period])
 
-  const filteredData = useMemo(() => {
-    const query = searchQuery.toLowerCase()
-    if (!query) return currentView.data
-    return currentView.data.filter((row) =>
-      Object.values(row).some((value) => String(value).toLowerCase().includes(query)),
+  // ビュー切り替えで展開状態リセット
+  useEffect(() => {
+    setExpandedCustomers(new Set())
+    setExpandedBrands(new Set())
+  }, [activeView, period])
+
+  // 売上ツリー（検索フィルタ適用後）
+  const filteredSalesRows = useMemo(() => {
+    if (!hubData) return []
+    const q = search.toLowerCase()
+    if (!q) return hubData.sales
+    return hubData.sales.filter((r) =>
+      [r.customerCategory1Name, r.brandName, r.itemName, r.productName1, r.staffName]
+        .some((v) => v?.toLowerCase().includes(q)),
     )
-  }, [currentView, searchQuery])
+  }, [hubData, search])
 
-  const sumByKey = (key: string) =>
-    filteredData.reduce((acc, row) => acc + (typeof row[key] === "number" ? (row[key] as number) : 0), 0)
+  const salesTree = useMemo(() => buildSalesTree(filteredSalesRows), [filteredSalesRows])
 
-  const formatValue = (value: string | number | undefined, columnKey?: string, columnLabel?: string) => {
-    if (value === undefined || value === null) return "-"
-    if (typeof value !== "number") return value
-    const isPercent = columnLabel?.includes("%")
-    const isCurrency =
-      columnKey &&
-      (columnKey.includes("金額") || columnKey.includes("残高") || columnKey.includes("支払額") || columnKey.includes("入金額"))
-    if (isPercent) return formatNumber(value, true)
-    if (isCurrency) return `¥${formatNumber(value)}`
-    return formatNumber(value)
+  // 支払・入金（集計）
+  const filteredPayables = useMemo(() => {
+    if (!hubData) return []
+    const q = search.toLowerCase()
+    const rows = q
+      ? hubData.payables.filter((r) => r.vendorShort?.toLowerCase().includes(q))
+      : hubData.payables
+    return aggregatePayables(rows)
+  }, [hubData, search])
+
+  const filteredReceivables = useMemo(() => {
+    if (!hubData) return []
+    const q = search.toLowerCase()
+    const rows = q
+      ? hubData.receivables.filter((r) =>
+          [r.customerShort, r.staffName].some((v) => v?.toLowerCase().includes(q)),
+        )
+      : hubData.receivables
+    return aggregateReceivables(rows)
+  }, [hubData, search])
+
+  // サマリー合計
+  const salesTotals = useMemo(
+    () => salesTree.reduce((a, c) => ({ netSalesYen: a.netSalesYen + c.netSalesYen, grossProfitYen: a.grossProfitYen + c.grossProfitYen }), { netSalesYen: 0, grossProfitYen: 0 }),
+    [salesTree],
+  )
+  const payTotals = useMemo(
+    () => filteredPayables.reduce((a, r) => ({ paymentYen: a.paymentYen + r.paymentYen, purchaseTaxInYen: a.purchaseTaxInYen + r.purchaseTaxInYen }), { paymentYen: 0, purchaseTaxInYen: 0 }),
+    [filteredPayables],
+  )
+  const recTotals = useMemo(
+    () => filteredReceivables.reduce((a, r) => ({ receivedYen: a.receivedYen + r.receivedYen, salesTaxInYen: a.salesTaxInYen + r.salesTaxInYen }), { receivedYen: 0, salesTaxInYen: 0 }),
+    [filteredReceivables],
+  )
+
+  const hasData =
+    activeView === "sales"       ? salesTree.length > 0
+    : activeView === "payables"  ? filteredPayables.length > 0
+    : filteredReceivables.length > 0
+
+  const toggleCustomer = (name: string) =>
+    setExpandedCustomers((prev) => { const s = new Set(prev); s.has(name) ? s.delete(name) : s.add(name); return s })
+
+  const toggleBrand = (cName: string, bName: string) => {
+    const key = `${cName}::${bName}`
+    setExpandedBrands((prev) => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
+
+  const VIEW_TABS = [
+    { key: "sales"       as const, label: "売上・粗利 (得意先/ブランド軸)" },
+    { key: "payables"    as const, label: "仕入・支払 (支払先別)" },
+    { key: "receivables" as const, label: "請求・入金 (請求先別)" },
+  ]
 
   return (
     <div className={cn("space-y-6", embedded ? "" : "p-6")}>
+      {/* ── ヘッダー ── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory AI</p>
           <h2 className="text-2xl font-bold text-foreground">在庫AIデータハブ</h2>
           <p className="text-muted-foreground text-sm">
-            取得カラムに合わせて売上・仕入・請求を切り替え。店舗/ブランドの粒度でダミーデータを確認できます。
+            取得カラムに合わせて売上・仕入・請求を切り替え。取引先・ブランド単位で実績を確認できます。
           </p>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Download className="w-4 h-4" />
-          CSV出力（ダミー）
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* 集計期間 */}
+          <div className="flex rounded-lg border bg-muted/30 p-1 gap-1">
+            {(["3m", "6m", "1y"] as PeriodOption[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  p === period
+                    ? "bg-[#345fe1] text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                )}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="w-4 h-4" />
+            CSV出力
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">{currentView.label}</CardTitle>
-            <p className="text-sm text-muted-foreground">{currentView.description}</p>
-          </div>
+          <CardTitle className="text-base">
+            {VIEW_TABS.find((v) => v.key === activeView)?.label}
+          </CardTitle>
           <div className="flex flex-wrap gap-2">
-            {dataViews.map((view) => (
+            {VIEW_TABS.map((view) => (
               <Button
                 key={view.key}
                 variant={view.key === activeView ? "default" : "outline"}
@@ -283,119 +301,216 @@ export function InventoryTable({ embedded = false }: InventoryTableProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* 検索 */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="得意先 / ブランド / 支払先 / 請求先 で検索"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={
+                activeView === "sales"       ? "得意先 / ブランド / 商品名 で検索"
+                : activeView === "payables"  ? "支払先で検索"
+                : "請求先 / 担当者で検索"
+              }
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
 
-          {currentView.totals && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {currentView.totals.map((total) => (
-                <Card key={total.key} className="bg-muted/40">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">{total.label}</p>
-                    <p className="text-lg font-bold">
-                      {total.prefix}
-                      {formatNumber(sumByKey(total.key))}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+          {/* サマリーカード */}
+          {!loading && hasData && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {activeView === "sales" && (
+                <>
+                  <Card className="bg-muted/40"><CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">純売上金額合計</p>
+                    <p className="text-lg font-bold">{fmtY(salesTotals.netSalesYen)}</p>
+                  </CardContent></Card>
+                  <Card className="bg-muted/40"><CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">粗利金額合計</p>
+                    <p className="text-lg font-bold">{fmtY(salesTotals.grossProfitYen)}</p>
+                  </CardContent></Card>
+                </>
+              )}
+              {activeView === "payables" && (
+                <>
+                  <Card className="bg-muted/40"><CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">支払額合計</p>
+                    <p className="text-lg font-bold">{fmtY(payTotals.paymentYen)}</p>
+                  </CardContent></Card>
+                  <Card className="bg-muted/40"><CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">税込仕入金額合計</p>
+                    <p className="text-lg font-bold">{fmtY(payTotals.purchaseTaxInYen)}</p>
+                  </CardContent></Card>
+                </>
+              )}
+              {activeView === "receivables" && (
+                <>
+                  <Card className="bg-muted/40"><CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">入金額合計</p>
+                    <p className="text-lg font-bold">{fmtY(recTotals.receivedYen)}</p>
+                  </CardContent></Card>
+                  <Card className="bg-muted/40"><CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">税込売上金額合計</p>
+                    <p className="text-lg font-bold">{fmtY(recTotals.salesTaxInYen)}</p>
+                  </CardContent></Card>
+                </>
+              )}
             </div>
           )}
 
+          {/* テーブル */}
           <div className="overflow-x-auto rounded-lg border">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/60">
-                <tr>
-                  {currentView.columns.map((col) => (
-                    <th
-                      key={col.key}
-                      className={cn(
-                        "px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap",
-                        col.align === "right" && "text-right",
-                      )}
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredData.map((row, idx) => (
-                  <tr key={idx} className="border-t border-border/70 hover:bg-muted/40">
-                    {currentView.columns.map((col) => {
-                      const value = row[col.key]
-                      const isPrimary = col.key === currentView.columns[0]?.key
-                      return (
-                        <td
-                          key={`${col.key}-${idx}`}
-                          className={cn("px-4 py-2.5 whitespace-nowrap", col.align === "right" && "text-right")}
-                        >
-                          {isPrimary ? (
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+                読み込み中...
+              </div>
+            ) : !hasData ? (
+              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+                {PERIOD_LABELS[period]}のデータがありません
+              </div>
+
+            ) : activeView === "sales" ? (
+              /* ── 売上ツリーテーブル ── */
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/60">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">名称</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">純売上数量</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">純売上金額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">粗利金額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">粗利率(%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesTree.map((customer) => {
+                    const isCustOpen = expandedCustomers.has(customer.name)
+                    return (
+                      <Fragment key={`c-${customer.name}`}>
+                        {/* 得意先行 */}
+                        <tr className="border-t border-border/70 bg-muted/10 hover:bg-muted/30">
+                          <td className="px-4 py-2.5 whitespace-nowrap">
                             <button
                               type="button"
-                              onClick={() => setSelectedDetail({ viewKey: currentView.key, row })}
-                              className="text-left text-[#345fe1] hover:underline font-medium"
+                              onClick={() => toggleCustomer(customer.name)}
+                              className="flex items-center gap-1.5 text-left font-semibold text-foreground hover:text-[#345fe1] transition-colors"
                             >
-                              {formatValue(value, col.key, col.label)}
+                              {isCustOpen
+                                ? <ChevronDown  className="w-4 h-4 shrink-0 text-[#345fe1]" />
+                                : <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
+                              }
+                              {customer.name}
                             </button>
-                          ) : (
-                            formatValue(value, col.key, col.label)
-                          )}
-                        </td>
-                      )
-                    })}
+                          </td>
+                          <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium">{fmt(customer.netQty)}</td>
+                          <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium">{fmtY(customer.netSalesYen)}</td>
+                          <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium">{fmtY(customer.grossProfitYen)}</td>
+                          <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium">{fmtR(customer.grossProfitRate)}</td>
+                        </tr>
+
+                        {/* ブランド行 */}
+                        {isCustOpen && customer.brands.map((brand) => {
+                          const brandKey  = `${customer.name}::${brand.name}`
+                          const isBrandOpen = expandedBrands.has(brandKey)
+                          return (
+                            <Fragment key={`b-${brandKey}`}>
+                              <tr className="border-t border-border/50 hover:bg-muted/20">
+                                <td className="pl-10 pr-4 py-2 whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleBrand(customer.name, brand.name)}
+                                    className="flex items-center gap-1.5 text-left text-foreground hover:text-[#345fe1] transition-colors"
+                                  >
+                                    {isBrandOpen
+                                      ? <ChevronDown  className="w-3.5 h-3.5 shrink-0 text-[#345fe1]" />
+                                      : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                                    }
+                                    {brand.name}
+                                  </button>
+                                </td>
+                                <td className="px-4 py-2 text-right whitespace-nowrap text-muted-foreground">{fmt(brand.netQty)}</td>
+                                <td className="px-4 py-2 text-right whitespace-nowrap text-muted-foreground">{fmtY(brand.netSalesYen)}</td>
+                                <td className="px-4 py-2 text-right whitespace-nowrap text-muted-foreground">{fmtY(brand.grossProfitYen)}</td>
+                                <td className="px-4 py-2 text-right whitespace-nowrap text-muted-foreground">{fmtR(brand.grossProfitRate)}</td>
+                              </tr>
+
+                              {/* 商品行 */}
+                              {isBrandOpen && brand.products.map((product, pi) => (
+                                <tr key={`p-${brandKey}-${pi}`} className="border-t border-border/30 hover:bg-muted/10">
+                                  <td className="pl-[4.5rem] pr-4 py-1.5 whitespace-nowrap text-xs text-muted-foreground">{product.name}</td>
+                                  <td className="px-4 py-1.5 text-right whitespace-nowrap text-xs text-muted-foreground">{fmt(product.netQty)}</td>
+                                  <td className="px-4 py-1.5 text-right whitespace-nowrap text-xs text-muted-foreground">{fmtY(product.netSalesYen)}</td>
+                                  <td className="px-4 py-1.5 text-right whitespace-nowrap text-xs text-muted-foreground">{fmtY(product.grossProfitYen)}</td>
+                                  <td className="px-4 py-1.5 text-right whitespace-nowrap text-xs text-muted-foreground">{fmtR(product.grossProfitRate)}</td>
+                                </tr>
+                              ))}
+                            </Fragment>
+                          )
+                        })}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+
+            ) : activeView === "payables" ? (
+              /* ── 仕入・支払テーブル ── */
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/60">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">支払先</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">前月末残高</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">支払額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">純仕入金額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">税込仕入金額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">当月末残高</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredPayables.map((row, i) => (
+                    <tr key={i} className="border-t border-border/70 hover:bg-muted/40">
+                      <td className="px-4 py-2.5 whitespace-nowrap font-medium">{row.vendorShort}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.prevBalanceYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.paymentYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.netPurchaseYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.purchaseTaxInYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.monthEndBalanceYen)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+            ) : (
+              /* ── 請求・入金テーブル ── */
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/60">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">請求先</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">担当者</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">入金額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">純売上金額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">税込売上金額</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">当月末残高</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">与信枠残高</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredReceivables.map((row, i) => (
+                    <tr key={i} className="border-t border-border/70 hover:bg-muted/40">
+                      <td className="px-4 py-2.5 whitespace-nowrap font-medium">{row.customerShort}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{row.staffName}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.receivedYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.netSalesYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.salesTaxInYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.monthEndBalanceYen)}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtY(row.creditLimitBalanceYen)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </CardContent>
       </Card>
-
-      <Dialog open={!!selectedDetail} onOpenChange={(open: boolean) => !open && setSelectedDetail(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedDetail
-                ? formatValue(
-                    selectedDetail.row[dataViews.find((view) => view.key === selectedDetail.viewKey)?.columns[0]?.key ?? ""],
-                  )
-                : "詳細"}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedDetail && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">
-                {dataViews.find((view) => view.key === selectedDetail.viewKey)?.label}
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {dataViews
-                  .find((view) => view.key === selectedDetail.viewKey)
-                  ?.columns.map((col) => (
-                    <div key={col.key} className="space-y-1">
-                      <p className="text-xs text-muted-foreground">{col.label}</p>
-                      <p className="text-sm font-medium text-foreground">
-                        {formatValue(selectedDetail.row[col.key], col.key, col.label)}
-                      </p>
-                    </div>
-                  ))}
-              </div>
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={() => setSelectedDetail(null)}>
-                  閉じる
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

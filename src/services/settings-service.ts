@@ -102,9 +102,11 @@ export async function deleteCategory(
 
 // ── 固定費（RecurringEntry） ───────────────────────────────────────────────────
 
+const FIXED_COST_CATEGORY = "固定費"
+
 export async function getRecurringEntries(): Promise<RecurringEntryDTO[]> {
   const rows = await prisma.recurringEntry.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, category: FIXED_COST_CATEGORY },
     orderBy: { sortOrder: "asc" },
   })
   return rows.map((r) => ({ id: r.id, description: r.description, amountYen: Number(r.amountYen), category: r.category, dueDay: r.dueDay, sortOrder: r.sortOrder }))
@@ -114,7 +116,11 @@ export async function saveRecurringEntries(
   items: Array<{ id?: string; description: string; amountYen: number; dueDay: number }>,
 ): Promise<RecurringEntryDTO[]> {
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.recurringEntry.findMany({ where: { deletedAt: null }, select: { id: true } })
+    // 固定費カテゴリのエントリのみを対象にする
+    const existing = await tx.recurringEntry.findMany({
+      where: { deletedAt: null, category: FIXED_COST_CATEGORY },
+      select: { id: true },
+    })
     const existingIds = existing.map((r) => r.id)
     const incomingIds = items.filter((i) => i.id).map((i) => i.id as string)
     const toDelete = existingIds.filter((id) => !incomingIds.includes(id))
@@ -132,12 +138,15 @@ export async function saveRecurringEntries(
         })
       } else {
         await tx.recurringEntry.create({
-          data: { description: item.description, amountYen: item.amountYen, dueDay: item.dueDay, sortOrder: i, flow: "expense", category: "固定費" },
+          data: { description: item.description, amountYen: item.amountYen, dueDay: item.dueDay, sortOrder: i, flow: "expense", category: FIXED_COST_CATEGORY },
         })
       }
     }
 
-    const updated = await tx.recurringEntry.findMany({ where: { deletedAt: null }, orderBy: { sortOrder: "asc" } })
+    const updated = await tx.recurringEntry.findMany({
+      where: { deletedAt: null, category: FIXED_COST_CATEGORY },
+      orderBy: { sortOrder: "asc" },
+    })
     return updated.map((r) => ({ id: r.id, description: r.description, amountYen: Number(r.amountYen), category: r.category, dueDay: r.dueDay, sortOrder: r.sortOrder }))
   })
 }

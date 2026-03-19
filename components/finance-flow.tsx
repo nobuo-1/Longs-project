@@ -1,7 +1,16 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getGanttEntriesAction, type GanttEntryDTO } from "@/src/actions/finance-actions"
+import {
+  getGanttEntriesAction,
+  getFinanceOverviewStatsAction,
+  getReservePoliciesAction,
+  updateReservePolicyAction,
+  updateTotalAssetsYenAction,
+  type GanttEntryDTO,
+  type ReservePolicyDTO,
+} from "@/src/actions/finance-actions"
+import type { FinanceOverviewStats } from "@/src/services/finance-service"
 import {
   Wallet,
   Calendar,
@@ -11,6 +20,8 @@ import {
   Smartphone,
   BarChart3,
   Building2,
+  Pencil,
+  Check,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
@@ -32,29 +43,6 @@ interface FinanceFlowProps {
   initialTab?: "overview" | "reserve" | "gantt"
 }
 
-const inventoryColumnSummaries = [
-  {
-    id: "sales",
-    title: "今期 売上/粗利",
-    value: 6170000,
-    description: "今期の純売上金額合計 (view: 売上・粗利)",
-    icon: BarChart3,
-  },
-  {
-    id: "payables",
-    title: "今期 仕入/支払",
-    value: 3720000,
-    description: "今期の支払額合計 (view: 仕入・支払)",
-    icon: Wallet,
-  },
-  {
-    id: "receivables",
-    title: "今期 請求/入金",
-    value: 7850000,
-    description: "今期の入金額合計 (view: 請求・入金)",
-    icon: Building2,
-  },
-]
 
 type FlowType = "income" | "expense"
 
@@ -74,56 +62,74 @@ type EntryOccurrence = {
   tags?: string[]
 }
 
-const totalAssets = 15000000 // 15 million yen
 
 const expandSchedules = (year: number, entries: RecurringEntry[]): EntryOccurrence[] => {
   const events: EntryOccurrence[] = []
 
-  for (let month = 0; month < 12; month++) {
-    entries.forEach((schedule) => {
-      const dueMonth = month + schedule.offsetMonths
-      const dueYear = year + Math.floor(dueMonth / 12)
+  for (const schedule of entries) {
+    if (schedule.invoiceDate) {
+      // ファクトベースエントリ: invoiceDate + offsetMonths で支払日を1回生成
+      const invoiceDate = new Date(schedule.invoiceDate + "T00:00:00")
+      const invoiceMonth = invoiceDate.getMonth()
+      const invoiceYear = invoiceDate.getFullYear()
+      const dueMonth = invoiceMonth + schedule.offsetMonths
+      const dueYear = invoiceYear + Math.floor(dueMonth / 12)
       const normalizedMonth = ((dueMonth % 12) + 12) % 12
-
-      if (dueYear !== year) {
-        return
-      }
-
-      const seasonalFactor = schedule.seasonality[month] ?? 1
-      const amount = Math.round(schedule.amount * seasonalFactor)
-
+      if (dueYear !== year) continue
       events.push({
-        id: `${schedule.id}-${year}-${normalizedMonth + 1}`,
+        id: `${schedule.id}-${year}`,
         entryId: schedule.id,
         partner: schedule.partner,
         description: schedule.description,
-        amount,
+        amount: schedule.amount,
         type: schedule.type,
         category: schedule.category,
         cycle: schedule.cycle,
         dueDate: new Date(dueYear, normalizedMonth, schedule.day),
-        invoiceMonth: month,
+        invoiceMonth,
         tags: schedule.tags.length > 0 ? schedule.tags : undefined,
       })
-    })
+    } else {
+      // 固定費エントリ: 毎月繰り返し
+      for (let month = 0; month < 12; month++) {
+        const dueMonth = month + schedule.offsetMonths
+        const dueYear = year + Math.floor(dueMonth / 12)
+        const normalizedMonth = ((dueMonth % 12) + 12) % 12
+        if (dueYear !== year) continue
+        const seasonalFactor = schedule.seasonality[month] ?? 1
+        const amount = Math.round(schedule.amount * seasonalFactor)
+        events.push({
+          id: `${schedule.id}-${year}-${normalizedMonth + 1}`,
+          entryId: schedule.id,
+          partner: schedule.partner,
+          description: schedule.description,
+          amount,
+          type: schedule.type,
+          category: schedule.category,
+          cycle: schedule.cycle,
+          dueDate: new Date(dueYear, normalizedMonth, schedule.day),
+          invoiceMonth: month,
+          tags: schedule.tags.length > 0 ? schedule.tags : undefined,
+        })
+      }
+    }
   }
 
   return events.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
 }
 
-const reserveCategories = [
-  { id: "emergency", name: "緊急準備金", description: "不測の事態への備え", defaultPercent: 10 },
-  { id: "seasonal", name: "季節仕入れ", description: "シーズン商品の仕入れ資金", defaultPercent: 15 },
-  { id: "equipment", name: "設備更新", description: "店舗設備の更新・修繕", defaultPercent: 5 },
-  { id: "expansion", name: "事業拡大", description: "新店舗・新事業への投資", defaultPercent: 10 },
-]
 
 export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
-  const [reserveSettings, setReserveSettings] = useState(
-    reserveCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: cat.defaultPercent }), {} as Record<string, number>),
-  )
-  const [currentMonth, setCurrentMonth] = useState(new Date(2024, 3, 1))
-  const [viewYear, setViewYear] = useState(2024)
+  const [totalAssets, setTotalAssets] = useState(15_000_000)
+  const [editingTotalAssets, setEditingTotalAssets] = useState(false)
+  const [totalAssetsInput, setTotalAssetsInput] = useState("")
+  const [overviewStats, setOverviewStats] = useState<FinanceOverviewStats | null>(null)
+  const [reservePolicies, setReservePolicies] = useState<ReservePolicyDTO[]>([])
+  const [reserveSettings, setReserveSettings] = useState<Record<string, number>>({})
+  const [overviewLoading, setOverviewLoading] = useState(true)
+  const [reserveLoading, setReserveLoading] = useState(true)
+  const [currentMonth, setCurrentMonth] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1) })
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear())
   const [ganttMode, setGanttMode] = useState<"monthly" | "yearly">("monthly")
   const [selectedEvent, setSelectedEvent] = useState<EntryOccurrence | null>(null)
   const [showSalesModal, setShowSalesModal] = useState(false)
@@ -135,6 +141,26 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     getGanttEntriesAction().then((result) => {
       if (result.success) setSchedules(result.data)
       setSchedulesLoading(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    getFinanceOverviewStatsAction().then((result) => {
+      if (result.success) {
+        setTotalAssets(result.data.totalAssetsYen)
+        setOverviewStats(result.data)
+      }
+      setOverviewLoading(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    getReservePoliciesAction().then((result) => {
+      if (result.success) {
+        setReservePolicies(result.data)
+        setReserveSettings(Object.fromEntries(result.data.map((p) => [p.id, p.percent])))
+      }
+      setReserveLoading(false)
     })
   }, [])
 
@@ -150,8 +176,23 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     }).format(value)
   }
 
+  const startEditTotalAssets = () => {
+    setTotalAssetsInput(String(totalAssets))
+    setEditingTotalAssets(true)
+  }
+
+  const commitTotalAssets = async () => {
+    const parsed = parseInt(totalAssetsInput.replace(/[^0-9]/g, ""), 10)
+    if (!isNaN(parsed) && parsed >= 0) {
+      setTotalAssets(parsed)
+      await updateTotalAssetsYenAction(parsed)
+    }
+    setEditingTotalAssets(false)
+  }
+
   const updateReserveSetting = (id: string, value: number) => {
     setReserveSettings((prev) => ({ ...prev, [id]: value }))
+    updateReservePolicyAction(id, value)
   }
 
   const monthName = currentMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long" })
@@ -268,7 +309,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
       case "gantt":
         return "ガントチャート"
       default:
-        return "キャッシュフロー"
+        return "ファイナンスフロー"
     }
   }
 
@@ -283,18 +324,46 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     }
   }
 
-  const assetDistributionData = [
-    { name: "可処分予算", value: disposableBudget, color: "#345fe1" },
-    { name: "緊急準備金", value: Math.round(totalAssets * (reserveSettings.emergency / 100)), color: "#22c55e" },
-    { name: "季節仕入れ", value: Math.round(totalAssets * (reserveSettings.seasonal / 100)), color: "#f97316" },
-    { name: "設備更新", value: Math.round(totalAssets * (reserveSettings.equipment / 100)), color: "#a855f7" },
-    { name: "事業拡大", value: Math.round(totalAssets * (reserveSettings.expansion / 100)), color: "#ec4899" },
+  const fiscalYearLabel = overviewStats ? `今期(${overviewStats.fiscalYear}年度)` : "今期"
+  const inventoryColumnSummaries = [
+    {
+      id: "sales",
+      title: `${fiscalYearLabel} 売上/粗利`,
+      value: overviewStats?.salesTotalYen ?? 6_170_000,
+      description: `${fiscalYearLabel}の純売上金額合計 (view: 売上・粗利)`,
+      icon: BarChart3,
+    },
+    {
+      id: "payables",
+      title: `${fiscalYearLabel} 仕入/支払`,
+      value: overviewStats?.payablesTotalYen ?? 3_720_000,
+      description: `${fiscalYearLabel}の支払額合計 (view: 仕入・支払)`,
+      icon: Wallet,
+    },
+    {
+      id: "receivables",
+      title: `${fiscalYearLabel} 請求/入金`,
+      value: overviewStats?.receivablesTotalYen ?? 7_850_000,
+      description: `${fiscalYearLabel}の入金額合計 (view: 請求・入金)`,
+      icon: Building2,
+    },
   ]
 
-  const reserveBreakdownData = reserveCategories.map((cat, index) => ({
-    name: cat.name,
-    value: Math.round(totalAssets * (reserveSettings[cat.id] / 100)),
-    percent: reserveSettings[cat.id],
+  const reserveColors = ["#22c55e", "#f97316", "#a855f7", "#ec4899"]
+
+  const assetDistributionData = [
+    { name: "可処分予算", value: disposableBudget, color: "#345fe1" },
+    ...reservePolicies.map((p, index) => ({
+      name: p.name,
+      value: Math.round(totalAssets * ((reserveSettings[p.id] ?? p.percent) / 100)),
+      color: reserveColors[index] ?? "#94a3b8",
+    })),
+  ]
+
+  const reserveBreakdownData = reservePolicies.map((p, index) => ({
+    name: p.name,
+    value: Math.round(totalAssets * ((reserveSettings[p.id] ?? p.percent) / 100)),
+    percent: reserveSettings[p.id] ?? p.percent,
     color: ["#345fe1", "#22c55e", "#f97316", "#a855f7"][index],
   }))
 
@@ -348,9 +417,32 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="text-center mt-4 p-4 bg-muted/30 rounded-xl">
-              <p className="text-sm text-muted-foreground">総資産</p>
-              <p className="text-2xl font-bold text-foreground">{formatCurrency(totalAssets)}</p>
+            <div className="mt-4 p-4 bg-muted/30 rounded-xl">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-muted-foreground">総資産</p>
+                {!editingTotalAssets && (
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={startEditTotalAssets}>
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+              {editingTotalAssets ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    className="text-xl font-bold text-center"
+                    value={totalAssetsInput}
+                    onChange={(e) => setTotalAssetsInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitTotalAssets() }}
+                    autoFocus
+                  />
+                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={commitTotalAssets}>
+                    <Check className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-2xl font-bold text-foreground text-center">{formatCurrency(totalAssets)}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -448,83 +540,87 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
         <CardTitle className="text-base">内部留保の詳細設定</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          {reserveCategories.map((cat) => (
-            <div key={cat.id} className="p-4 border border-border rounded-xl">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-medium text-foreground">{cat.name}</p>
-                  <p className="text-sm text-muted-foreground">{cat.description}</p>
+        {reserveLoading ? (
+          <p className="text-sm text-muted-foreground">読み込み中...</p>
+        ) : (
+          <div className="space-y-6">
+            {reservePolicies.map((cat) => (
+              <div key={cat.id} className="p-4 border border-border rounded-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-medium text-foreground">{cat.name}</p>
+                    <p className="text-sm text-muted-foreground">{cat.description}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-[#345fe1]">{reserveSettings[cat.id] ?? cat.percent}%</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatCurrency(Math.round(totalAssets * ((reserveSettings[cat.id] ?? cat.percent) / 100)))}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-[#345fe1]">{reserveSettings[cat.id]}%</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatCurrency(Math.round(totalAssets * (reserveSettings[cat.id] / 100)))}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <Slider
+                    value={[reserveSettings[cat.id] ?? cat.percent]}
+                    onValueChange={(value: number[]) => updateReserveSetting(cat.id, value[0])}
+                    max={30}
+                    step={1}
+                    className="flex-1 [&_[data-slot=slider-track]]:bg-[#345fe1]/15 [&_[data-slot=slider-range]]:bg-[#345fe1] [&_[data-slot=slider-thumb]]:border-[#345fe1] [&_[data-slot=slider-thumb]]:focus-visible:ring-[#345fe1]/30 [&_[data-slot=slider-thumb]]:hover:ring-[#345fe1]/20"
+                  />
+                  <Input
+                    type="number"
+                    value={reserveSettings[cat.id] ?? cat.percent}
+                    onChange={(e) => updateReserveSetting(cat.id, Number(e.target.value))}
+                    className="w-20 text-right"
+                    min={0}
+                    max={30}
+                  />
+                  <span className="text-muted-foreground">%</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <Slider
-                  value={[reserveSettings[cat.id]]}
-                  onValueChange={(value: number[]) => updateReserveSetting(cat.id, value[0])}
-                  max={30}
-                  step={1}
-                  className="flex-1 [&_[data-slot=slider-track]]:bg-[#345fe1]/15 [&_[data-slot=slider-range]]:bg-[#345fe1] [&_[data-slot=slider-thumb]]:border-[#345fe1] [&_[data-slot=slider-thumb]]:focus-visible:ring-[#345fe1]/30 [&_[data-slot=slider-thumb]]:hover:ring-[#345fe1]/20"
-                />
-                <Input
-                  type="number"
-                  value={reserveSettings[cat.id]}
-                  onChange={(e) => updateReserveSetting(cat.id, Number(e.target.value))}
-                  className="w-20 text-right"
-                  min={0}
-                  max={30}
-                />
-                <span className="text-muted-foreground">%</span>
-              </div>
-            </div>
-          ))}
+            ))}
 
-          <div className="p-4 bg-muted/50 rounded-xl">
-            <div className="flex items-center justify-between">
-              <p className="font-medium">内部留保合計</p>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(reserveAmount)}</p>
-                <p className="text-sm text-muted-foreground">{totalReservePercent}%</p>
+            <div className="p-4 bg-muted/50 rounded-xl">
+              <div className="flex items-center justify-between">
+                <p className="font-medium">内部留保合計</p>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(reserveAmount)}</p>
+                  <p className="text-sm text-muted-foreground">{totalReservePercent}%</p>
+                </div>
               </div>
-            </div>
-            <div className="mt-3 h-3 bg-muted rounded-full overflow-hidden flex">
-              {reserveCategories.map((cat, index) => (
-                <div
-                  key={cat.id}
-                  className={cn(
-                    "h-full",
-                    index === 0 && "bg-[#345fe1]",
-                    index === 1 && "bg-[#22c55e]",
-                    index === 2 && "bg-[#f97316]",
-                    index === 3 && "bg-[#a855f7]",
-                  )}
-                  style={{ width: `${(reserveSettings[cat.id] / totalReservePercent) * 100}%` }}
-                />
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-3 mt-3">
-              {reserveCategories.map((cat, index) => (
-                <div key={cat.id} className="flex items-center gap-2 text-xs">
+              <div className="mt-3 h-3 bg-muted rounded-full overflow-hidden flex">
+                {reservePolicies.map((cat, index) => (
                   <div
+                    key={cat.id}
                     className={cn(
-                      "w-3 h-3 rounded",
+                      "h-full",
                       index === 0 && "bg-[#345fe1]",
                       index === 1 && "bg-[#22c55e]",
                       index === 2 && "bg-[#f97316]",
                       index === 3 && "bg-[#a855f7]",
                     )}
+                    style={{ width: `${((reserveSettings[cat.id] ?? cat.percent) / totalReservePercent) * 100}%` }}
                   />
-                  <span className="text-muted-foreground">{cat.name}</span>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3 mt-3">
+                {reservePolicies.map((cat, index) => (
+                  <div key={cat.id} className="flex items-center gap-2 text-xs">
+                    <div
+                      className={cn(
+                        "w-3 h-3 rounded",
+                        index === 0 && "bg-[#345fe1]",
+                        index === 1 && "bg-[#22c55e]",
+                        index === 2 && "bg-[#f97316]",
+                        index === 3 && "bg-[#a855f7]",
+                      )}
+                    />
+                    <span className="text-muted-foreground">{cat.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -534,6 +630,45 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
       ...schedule,
       events: yearlyEvents.filter((event) => event.entryId === schedule.id),
     }))
+
+    // 年間テーブル用: (partner, type) で集約し、同一取引先が複数行にならないようにする
+    type GroupedYearlyRow = {
+      key: string
+      partner: string
+      type: "income" | "expense"
+      category: string
+      cycle: string
+      isFixed: boolean
+      monthData: Map<number, { amount: number; event: EntryOccurrence }>
+    }
+    const groupedYearlyRows: GroupedYearlyRow[] = []
+    const groupedMap = new Map<string, GroupedYearlyRow>()
+    for (const row of yearlyRows) {
+      const key = `${row.partner}||${row.type}`
+      if (!groupedMap.has(key)) {
+        const g: GroupedYearlyRow = {
+          key,
+          partner: row.partner,
+          type: row.type,
+          category: row.category,
+          cycle: row.cycle,
+          isFixed: row.isFixed,
+          monthData: new Map(),
+        }
+        groupedMap.set(key, g)
+        groupedYearlyRows.push(g)
+      }
+      const g = groupedMap.get(key)!
+      for (const event of row.events) {
+        const month = event.dueDate.getMonth()
+        const existing = g.monthData.get(month)
+        if (existing) {
+          existing.amount += event.amount
+        } else {
+          g.monthData.set(month, { amount: event.amount, event })
+        }
+      }
+    }
 
     const monthlyLegend = (
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
@@ -564,13 +699,19 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
         label: index === array.length - 1 ? "月末" : `${day}日`,
       }))
 
+    // 期初残高（totalAssets）＋ 前月末までの累積純収支 → 当月1日時点の繰越残高
+    const currentMonthIndex = currentMonth.getMonth()
+    const monthOpeningBalance =
+      totalAssets +
+      monthlySummary.slice(0, currentMonthIndex).reduce((sum, m) => sum + m.net, 0)
+
     const checkpointTotals = checkpoints.map(({ day }) =>
       monthlyEvents.reduce((sum, event) => {
         if (event.dueDate.getDate() <= day) {
           return sum + (event.type === "income" ? event.amount : -event.amount)
         }
         return sum
-      }, 0),
+      }, monthOpeningBalance),
     )
 
     const checkpointRows = checkpoints.map((checkpoint, index) => ({
@@ -668,15 +809,14 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                   >
                     <td colSpan={5} className="py-2 px-4 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">{row.checkpoint.label} 時点収支</span>
+                        <span className="text-muted-foreground">{row.checkpoint.label} 時点残高</span>
                         <span
                           className={cn(
                             "font-semibold",
                             row.checkpoint.total >= 0 ? "text-[#345fe1]" : "text-red-600",
                           )}
                         >
-                          {row.checkpoint.total >= 0 ? "+" : "-"}
-                          {formatCurrency(Math.abs(row.checkpoint.total))}
+                          {formatCurrency(row.checkpoint.total)}
                         </span>
                       </div>
                     </td>
@@ -750,9 +890,9 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             </Button>
           </div>
           <div className="text-xs text-muted-foreground">
-            <span>主要取引先 {schedules.filter((s) => !s.isFixed).length} 件</span>
+            <span>主要取引先 {groupedYearlyRows.filter((r) => !r.isFixed).length} 件</span>
             <span className="mx-2">・</span>
-            <span>固定費 {schedules.filter((s) => s.isFixed).length} 件</span>
+            <span>固定費 {groupedYearlyRows.filter((r) => r.isFixed).length} 件</span>
           </div>
         </div>
 
@@ -821,35 +961,34 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
               ))}
             </div>
 
-            {yearlyRows.map((row) => (
+            {groupedYearlyRows.map((row) => (
               <div
-                key={row.id}
+                key={row.key}
                 className="grid grid-cols-[220px_repeat(12,minmax(80px,1fr))] border-t border-border/70"
               >
                 <div className="p-3 space-y-1 sticky left-0 z-10 bg-white border-r border-border">
                   <div className="text-sm font-semibold text-foreground">{row.partner}</div>
                   <div className="text-xs text-muted-foreground">{row.cycle}</div>
-                  <div className="text-xs text-muted-foreground">{row.description}</div>
                 </div>
                 {Array.from({ length: 12 }, (_, month) => {
-                  const event = row.events.find((item) => item.dueDate.getMonth() === month)
+                  const data = row.monthData.get(month)
                   const colorClass =
-                    event?.type === "income" ? "bg-[#345fe1]" : row.category.includes("固定") ? "bg-amber-500" : "bg-red-500"
+                    row.type === "income" ? "bg-[#345fe1]" : row.category.includes("固定") ? "bg-amber-500" : "bg-red-500"
                   return (
                     <button
-                      key={`${row.id}-${month}`}
-                      onClick={() => event && setSelectedEvent(event)}
-                      disabled={!event}
+                      key={`${row.key}-${month}`}
+                      onClick={() => data && setSelectedEvent({ ...data.event, amount: data.amount })}
+                      disabled={!data}
                       className={cn(
                         "min-h-16 p-1.5 text-left border-l border-border/40 hover:bg-muted/40 transition-colors",
-                        !event && "bg-muted/20 text-muted-foreground cursor-default",
+                        !data && "bg-muted/20 text-muted-foreground cursor-default",
                       )}
                     >
-                      {event ? (
+                      {data ? (
                         <div className={cn("h-full rounded-lg px-2 py-1 text-white space-y-1", colorClass)}>
-                          <div className="text-[11px] font-semibold leading-tight">{formatCurrency(event.amount)}</div>
+                          <div className="text-[11px] font-semibold leading-tight">{formatCurrency(data.amount)}</div>
                           <div className="text-[10px] leading-tight opacity-90">
-                            {event.dueDate.getMonth() + 1} / {event.dueDate.getDate()} ｜ {event.cycle}
+                            {data.event.dueDate.getMonth() + 1} / {data.event.dueDate.getDate()} ｜ {row.cycle}
                           </div>
                         </div>
                       ) : (
@@ -1052,9 +1191,32 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 <div className="w-12 h-12 flex items-center justify-center">
                   <Wallet className="w-6 h-6 text-[#345fe1]" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">総資産</p>
-                  <p className="text-2xl font-bold text-foreground">{formatCurrency(totalAssets)}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">総資産</p>
+                    {!editingTotalAssets && (
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={startEditTotalAssets}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                  {editingTotalAssets ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        type="number"
+                        className="text-xl font-bold"
+                        value={totalAssetsInput}
+                        onChange={(e) => setTotalAssetsInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitTotalAssets() }}
+                        autoFocus
+                      />
+                      <Button size="icon" className="h-8 w-8 shrink-0" onClick={commitTotalAssets}>
+                        <Check className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground">{formatCurrency(totalAssets)}</p>
+                  )}
                 </div>
               </div>
             </CardContent>

@@ -287,9 +287,12 @@ model BusinessPartner {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
-  supplier         Supplier?
-  customer         Customer?
-  recurringEntries RecurringEntry[]
+  supplier          Supplier?
+  customer          Customer?
+  recurringEntries  RecurringEntry[]
+  salesFacts        SalesFact[]
+  payablesFacts     PayablesFact[]
+  receivablesFacts  ReceivablesFact[]
 
   @@map("business_partner")
 }
@@ -432,6 +435,7 @@ model DataImportIssue {
 model SalesFact {
   id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   importId              String?   @map("import_id") @db.Uuid
+  businessPartnerId     String?   @map("business_partner_id") @db.Uuid
   customerCategory1Code String?   @map("customer_category1_code")
   customerCategory1Name String?   @map("customer_category1_name")
   brandCode             String?   @map("brand_code")
@@ -459,16 +463,20 @@ model SalesFact {
   updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   deletedAt             DateTime? @map("deleted_at") @db.Timestamptz()
 
-  import DataImport? @relation(fields: [importId], references: [id])
+  import          DataImport?      @relation(fields: [importId], references: [id])
+  businessPartner BusinessPartner? @relation(fields: [businessPartnerId], references: [id])
 
   @@index([periodYm])
+  @@index([businessPartnerId])
   @@map("sales_fact")
 }
 
 model PayablesFact {
-  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  importId           String? @map("import_id") @db.Uuid
-  vendorName         String? @map("vendor_name")
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  importId           String?   @map("import_id") @db.Uuid
+  businessPartnerId  String?   @map("business_partner_id") @db.Uuid
+  periodYm           DateTime? @map("period_ym") @db.Date
+  vendorName         String?   @map("vendor_name")
   vendorShort        String? @map("vendor_short")
   prevBalanceYen     BigInt? @map("prev_balance_yen")
   paymentYen         BigInt? @map("payment_yen")
@@ -492,15 +500,19 @@ model PayablesFact {
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   deletedAt          DateTime? @map("deleted_at") @db.Timestamptz()
 
-  import DataImport? @relation(fields: [importId], references: [id])
+  import          DataImport?      @relation(fields: [importId], references: [id])
+  businessPartner BusinessPartner? @relation(fields: [businessPartnerId], references: [id])
 
+  @@index([businessPartnerId, periodYm])
   @@map("payables_fact")
 }
 
 model ReceivablesFact {
-  id                    String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  importId              String? @map("import_id") @db.Uuid
-  staffName             String? @map("staff_name")
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  importId              String?   @map("import_id") @db.Uuid
+  businessPartnerId     String?   @map("business_partner_id") @db.Uuid
+  periodYm              DateTime? @map("period_ym") @db.Date
+  staffName             String?   @map("staff_name")
   customerName          String? @map("customer_name")
   customerShort         String? @map("customer_short")
   prevBalanceYen        BigInt? @map("prev_balance_yen")
@@ -529,9 +541,11 @@ model ReceivablesFact {
   updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   deletedAt             DateTime? @map("deleted_at") @db.Timestamptz()
 
-  import DataImport? @relation(fields: [importId], references: [id])
+  import          DataImport?      @relation(fields: [importId], references: [id])
+  businessPartner BusinessPartner? @relation(fields: [businessPartnerId], references: [id])
 
   @@index([customerName])
+  @@index([businessPartnerId, periodYm])
   @@map("receivables_fact")
 }
 

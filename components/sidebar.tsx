@@ -73,7 +73,7 @@ const navItems = [
     basePath: "/finance",
     icon: Wallet,
     subItems: [
-      { id: "finance-main", label: "キャッシュフロー", icon: TrendingUp, href: "/finance/overview" },
+      { id: "finance-main", label: "ファイナンスフロー", icon: TrendingUp, href: "/finance/overview" },
       { id: "finance-gantt", label: "ガントチャート", icon: Calendar, href: "/finance/gantt" },
     ],
   },
