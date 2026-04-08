@@ -50,6 +50,7 @@ const navItems = [
       { id: "inventory-main", label: "仕入れ提案", icon: TrendingUp, href: "/inventory/suggestions" },
       { id: "inventory-procurement", label: "仕入れリスト", icon: Table, href: "/inventory/procurement" },
       { id: "inventory-insights", label: "在庫データ分析", icon: BarChart3, href: "/inventory/insights" },
+      { id: "inventory-alerts", label: "在庫アラート分析", icon: Bell, href: "/inventory/alerts"  },
       { id: "inventory-catalog", label: "商品一覧", icon: BookOpen, href: "/inventory/catalog" },
       { id: "inventory-planning", label: "在庫計画早見表", icon: BarChart3, href: "/inventory/planning" },
       { id: "inventory-ai-advice", label: "AIアドバイス(モック)", icon: Bot, href: "/inventory/advice" },
