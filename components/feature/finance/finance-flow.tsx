@@ -21,7 +21,7 @@ import {
   Building2,
   LayoutDashboard,
 } from "lucide-react"
-import { PageHeader } from "@/components/page-header"
+import { PageHeader } from "@/components/feature/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
@@ -36,7 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { InventoryTable } from "@/components/inventory-table"
+import { InventoryTable } from "@/components/feature/inventory/inventory-table"
 
 interface FinanceFlowProps {
   initialTab?: "overview" | "reserve" | "cashflow"

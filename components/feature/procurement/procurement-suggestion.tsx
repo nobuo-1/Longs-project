@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { TrendingUp } from "lucide-react"
-import { PageHeader } from "@/components/page-header"
+import { PageHeader } from "@/components/feature/page-header"
 import {
   getInventoryCatalogAction,
   getProcurementListAction,

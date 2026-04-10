@@ -1,4 +1,4 @@
-import { AIAdviceManagementReport } from "@/components/advice-reports"
+import { AIAdviceManagementReport } from "@/components/feature/advice/advice-reports"
 
 export default function AIAdviceManagementReportPage() {
   return <AIAdviceManagementReport />

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { PageHeader } from "@/components/page-header"
+import { PageHeader } from "@/components/feature/page-header"
 
 type ReportLens = {
   id: "balanced" | "cashflow" | "inventory" | "sales"

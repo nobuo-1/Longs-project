@@ -3,7 +3,7 @@
 import { Globe } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { PageHeader } from "@/components/page-header"
+import { PageHeader } from "@/components/feature/page-header"
 import { cn } from "@/lib/utils"
 
 const newsCategories = [

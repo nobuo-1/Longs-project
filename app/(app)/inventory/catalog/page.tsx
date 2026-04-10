@@ -1,4 +1,4 @@
-import { InventoryCatalog } from "@/components/inventory-catalog"
+import { InventoryCatalog } from "@/components/feature/inventory/inventory-catalog"
 
 export default function InventoryCatalogPage() {
   return <InventoryCatalog />

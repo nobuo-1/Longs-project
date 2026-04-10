@@ -1,6 +1,7 @@
 "use client"
 
-import { Sidebar, Header } from "@/components/sidebar"
+import { Sidebar } from "@/components/layout/sidebar"
+import { Header } from "@/components/layout/header"
 
 type AppShellProps = {
   children: React.ReactNode

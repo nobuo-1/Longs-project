@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/auth"
-import { AppShell } from "@/components/app-shell"
-import { SessionGuard } from "@/components/session-guard"
+import { AppShell } from "@/components/layout/app-shell"
+import { SessionGuard } from "@/components/providers/session-guard"
 
 export const dynamic = "force-dynamic"
 

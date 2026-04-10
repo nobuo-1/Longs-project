@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { AlertTriangle, Bell, Package, TrendingDown, Clock } from "lucide-react"
-import { PageHeader } from "@/components/page-header"
+import { PageHeader } from "@/components/feature/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

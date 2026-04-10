@@ -1,4 +1,4 @@
-import { CustomerQuadrant } from "@/components/inventory-matrix"
+import { CustomerQuadrant } from "@/components/feature/inventory/inventory-matrix"
 
 export default function InventoryCustomerQuadrantPage() {
   return <CustomerQuadrant />
