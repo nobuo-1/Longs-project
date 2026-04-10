@@ -8,7 +8,6 @@ import {
   Package,
   Wallet,
   Shirt,
-  Settings,
   HelpCircle,
   LogOut,
   Bell,
@@ -26,6 +25,7 @@ import {
   Globe,
   Sparkles,
   SlidersHorizontal,
+  LayoutDashboard,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getRoleLabel } from "@/src/lib/role-labels"
@@ -81,8 +81,8 @@ const navItems = [
     basePath: "/finance",
     icon: Wallet,
     subItems: [
-      { id: "finance-main", label: "ファイナンスフロー", icon: TrendingUp, href: "/finance/overview" },
-      { id: "finance-gantt", label: "ガントチャート", icon: Calendar, href: "/finance/gantt" },
+      { id: "finance-overview", label: "ファイナンス・サマリー", icon: LayoutDashboard, href: "/finance/overview" },
+      { id: "finance-cashflow", label: "入出金シミュレーション", icon: Calendar, href: "/finance/cashflow" },
     ],
   },
 ]

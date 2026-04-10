@@ -73,7 +73,7 @@ const csvTemplates = [
 const columnSets = [
   {
     title: "取得カラム（売上・粗利）",
-    target: "在庫AIデータハブ（売上ビュー）",
+    target: "在庫サマリー（売上ビュー）",
     columns: [
       "得意先分類1コード",
       "得意先分類1名",
@@ -94,7 +94,7 @@ const columnSets = [
   },
   {
     title: "取得カラム（仕入・支払）",
-    target: "在庫AIデータハブ（仕入・支払ビュー）",
+    target: "在庫サマリー（仕入・支払ビュー）",
     columns: [
       "支払先",
       "支払先略称",
@@ -108,7 +108,7 @@ const columnSets = [
   },
   {
     title: "取得カラム（請求・入金）",
-    target: "在庫AIデータハブ（請求・入金ビュー）",
+    target: "在庫サマリー（請求・入金ビュー）",
     columns: [
       "担当者",
       "請求先略称",

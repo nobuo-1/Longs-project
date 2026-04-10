@@ -22,7 +22,7 @@ import {
   Building2,
   Pencil,
   Check,
-  TrendingUp,
+  LayoutDashboard,
 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,7 +42,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { InventoryTable } from "@/components/inventory-table"
 
 interface FinanceFlowProps {
-  initialTab?: "overview" | "reserve" | "gantt"
+  initialTab?: "overview" | "reserve" | "cashflow"
 }
 
 
@@ -308,10 +308,10 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     switch (initialTab) {
       case "reserve":
         return "内部留保設定"
-      case "gantt":
-        return "ガントチャート"
+      case "cashflow":
+        return "入出金シミュレーション"
       default:
-        return "ファイナンスフロー"
+        return "ファイナンス・サマリー"
     }
   }
 
@@ -319,8 +319,8 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     switch (initialTab) {
       case "reserve":
         return "詳細な内部留保の設定とカスタマイズ"
-      case "gantt":
-        return "月次/年間ガントで振込サイト・固定費を一目管理"
+      case "cashflow":
+        return "月次/年間 で入出金スケジュールを一目で把握"
       default:
         return "キャッシュフロー管理と可処分予算計算"
     }
@@ -1032,7 +1032,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <CardTitle className="text-base flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                ガントチャート（振込・支払いサイト）
+                入出金シミュレーション（振込・支払いサイト）
               </CardTitle>
               <div className="flex gap-2">
                 <Button
@@ -1182,7 +1182,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
         eyebrow="Finance Flow"
         title={getPageTitle()}
         description={getPageDescription()}
-        icon={initialTab === "gantt" ? Calendar : TrendingUp}
+        icon={initialTab === "cashflow" ? Calendar : LayoutDashboard}
       />
 
       {/* Quick Stats - Only show on overview */}
@@ -1280,7 +1280,7 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
 
       {initialTab === "overview" && renderOverview()}
       {initialTab === "reserve" && renderReserve()}
-      {initialTab === "gantt" && renderGantt()}
+      {initialTab === "cashflow" && renderGantt()}
     </div>
   )
 }

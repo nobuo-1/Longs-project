@@ -247,8 +247,8 @@ export function InventoryTable({ embedded = false }: InventoryTableProps) {
       {/* ── ヘッダー ── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory AI</p>
-          <h2 className="text-2xl font-bold text-foreground">在庫AIデータハブ</h2>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory</p>
+          <h2 className="text-2xl font-bold text-foreground">在庫サマリー</h2>
           <p className="text-muted-foreground text-sm">
             取得カラムに合わせて売上・仕入・請求を切り替え。取引先・ブランド単位で実績を確認できます。
           </p>

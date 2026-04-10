@@ -905,7 +905,7 @@ export async function exportDatasetCsv(params: { dataset: string; search?: strin
   return generateCsv(headers, dataRows)
 }
 
-// ===== 在庫AIデータハブ向け =====
+// ===== 在庫サマリー向け =====
 
 export type PeriodOption = "3m" | "6m" | "1y"
 
