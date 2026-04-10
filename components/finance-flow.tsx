@@ -6,7 +6,6 @@ import {
   getFinanceOverviewStatsAction,
   getReservePoliciesAction,
   updateReservePolicyAction,
-  updateTotalAssetsYenAction,
   type GanttEntryDTO,
   type ReservePolicyDTO,
 } from "@/src/actions/finance-actions"
@@ -20,8 +19,6 @@ import {
   Smartphone,
   BarChart3,
   Building2,
-  Pencil,
-  Check,
   LayoutDashboard,
 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
@@ -123,8 +120,6 @@ const expandSchedules = (year: number, entries: RecurringEntry[]): EntryOccurren
 
 export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
   const [totalAssets, setTotalAssets] = useState(15_000_000)
-  const [editingTotalAssets, setEditingTotalAssets] = useState(false)
-  const [totalAssetsInput, setTotalAssetsInput] = useState("")
   const [overviewStats, setOverviewStats] = useState<FinanceOverviewStats | null>(null)
   const [reservePolicies, setReservePolicies] = useState<ReservePolicyDTO[]>([])
   const [reserveSettings, setReserveSettings] = useState<Record<string, number>>({})
@@ -167,8 +162,6 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
   }, [])
 
   const totalReservePercent = Object.values(reserveSettings).reduce((a, b) => a + b, 0)
-  const reserveAmount = Math.round(totalAssets * (totalReservePercent / 100))
-  const disposableBudget = totalAssets - reserveAmount
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("ja-JP", {
@@ -176,20 +169,6 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
       currency: "JPY",
       maximumFractionDigits: 0,
     }).format(value)
-  }
-
-  const startEditTotalAssets = () => {
-    setTotalAssetsInput(String(totalAssets))
-    setEditingTotalAssets(true)
-  }
-
-  const commitTotalAssets = async () => {
-    const parsed = parseInt(totalAssetsInput.replace(/[^0-9]/g, ""), 10)
-    if (!isNaN(parsed) && parsed >= 0) {
-      setTotalAssets(parsed)
-      await updateTotalAssetsYenAction(parsed)
-    }
-    setEditingTotalAssets(false)
   }
 
   const updateReserveSetting = (id: string, value: number) => {
@@ -289,6 +268,18 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     [yearlyEvents],
   )
 
+  const actualCurrentMonthIndex = new Date().getMonth()
+
+  const currentMonthEndBalance = useMemo(
+    () =>
+      totalAssets +
+      monthlySummary.slice(0, actualCurrentMonthIndex + 1).reduce((sum, m) => sum + m.net, 0),
+    [totalAssets, monthlySummary, actualCurrentMonthIndex],
+  )
+
+  const reserveAmount = Math.round(currentMonthEndBalance * (totalReservePercent / 100))
+  const disposableBudget = currentMonthEndBalance - reserveAmount
+
   const cycleSummary = useMemo(() => {
     const summary: Record<string, { income: number; expense: number }> = {}
     monthlyEvents.forEach((event) => {
@@ -357,14 +348,14 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
     { name: "可処分予算", value: disposableBudget, color: "#345fe1" },
     ...reservePolicies.map((p, index) => ({
       name: p.name,
-      value: Math.round(totalAssets * ((reserveSettings[p.id] ?? p.percent) / 100)),
+      value: Math.round(currentMonthEndBalance * ((reserveSettings[p.id] ?? p.percent) / 100)),
       color: reserveColors[index] ?? "#94a3b8",
     })),
   ]
 
   const reserveBreakdownData = reservePolicies.map((p, index) => ({
     name: p.name,
-    value: Math.round(totalAssets * ((reserveSettings[p.id] ?? p.percent) / 100)),
+    value: Math.round(currentMonthEndBalance * ((reserveSettings[p.id] ?? p.percent) / 100)),
     percent: reserveSettings[p.id] ?? p.percent,
     color: ["#345fe1", "#22c55e", "#f97316", "#a855f7"][index],
   }))
@@ -421,30 +412,10 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
             </div>
             <div className="mt-4 p-4 bg-muted/30 rounded-xl">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-muted-foreground">総資産</p>
-                {!editingTotalAssets && (
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={startEditTotalAssets}>
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                )}
+                <p className="text-sm text-muted-foreground">当月末残高</p>
+                <span className="text-xs text-muted-foreground">{monthName}</span>
               </div>
-              {editingTotalAssets ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    className="text-xl font-bold text-center"
-                    value={totalAssetsInput}
-                    onChange={(e) => setTotalAssetsInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") commitTotalAssets() }}
-                    autoFocus
-                  />
-                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={commitTotalAssets}>
-                    <Check className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-2xl font-bold text-foreground text-center">{formatCurrency(totalAssets)}</p>
-              )}
+              <p className="text-2xl font-bold text-foreground text-center">{formatCurrency(currentMonthEndBalance)}</p>
             </div>
           </CardContent>
         </Card>
@@ -485,11 +456,13 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 <p className="text-sm text-muted-foreground">内部留保合計</p>
                 <p className="text-xl font-bold text-foreground">{formatCurrency(reserveAmount)}</p>
                 <p className="text-sm text-[#345fe1]">{totalReservePercent}%</p>
+                <p className="text-xs text-muted-foreground mt-1">{monthName}</p>
               </div>
               <div className="p-3 bg-[#345fe1]/10 rounded-xl text-center">
                 <p className="text-sm text-muted-foreground">可処分予算</p>
                 <p className="text-xl font-bold text-[#345fe1]">{formatCurrency(disposableBudget)}</p>
                 <p className="text-sm text-[#345fe1]">{100 - totalReservePercent}%</p>
+                <p className="text-xs text-muted-foreground mt-1">{monthName}</p>
               </div>
             </div>
           </CardContent>
@@ -1196,30 +1169,10 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground">総資産</p>
-                    {!editingTotalAssets && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={startEditTotalAssets}>
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                    )}
+                    <p className="text-sm text-muted-foreground">当月末残高</p>
+                    <span className="text-xs text-muted-foreground">{monthName}</span>
                   </div>
-                  {editingTotalAssets ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input
-                        type="number"
-                        className="text-xl font-bold"
-                        value={totalAssetsInput}
-                        onChange={(e) => setTotalAssetsInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") commitTotalAssets() }}
-                        autoFocus
-                      />
-                      <Button size="icon" className="h-8 w-8 shrink-0" onClick={commitTotalAssets}>
-                        <Check className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-2xl font-bold text-foreground">{formatCurrency(totalAssets)}</p>
-                  )}
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(currentMonthEndBalance)}</p>
                 </div>
               </div>
             </CardContent>
@@ -1232,7 +1185,10 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                   <Settings className="w-6 h-6 text-[#345fe1]" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">内部留保合計</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">内部留保合計</p>
+                    <span className="text-xs text-muted-foreground">{monthName}</span>
+                  </div>
                   <p className="text-2xl font-bold text-foreground">{formatCurrency(reserveAmount)}</p>
                   <p className="text-sm text-[#345fe1]">{totalReservePercent}%</p>
                 </div>
@@ -1247,7 +1203,10 @@ export function FinanceFlow({ initialTab = "overview" }: FinanceFlowProps) {
                   <Wallet className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">可処分予算</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-white/70">可処分予算</p>
+                    <span className="text-xs text-white/50">{monthName}</span>
+                  </div>
                   <p className="text-2xl font-bold">{formatCurrency(disposableBudget)}</p>
                 </div>
               </div>
