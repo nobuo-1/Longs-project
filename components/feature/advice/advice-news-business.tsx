@@ -1,94 +1,119 @@
 "use client"
 
-import { Globe } from "lucide-react"
+import { useState, useTransition, useCallback } from "react"
+import { Globe, Plus, Pencil, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/feature/page-header"
+import { WeekPicker } from "@/components/feature/advice/week-picker"
+import { NewsQueryEditDialog } from "@/components/feature/advice/news-query-edit-dialog"
 import { cn } from "@/lib/utils"
+import { getWeekStart } from "@/src/lib/news-week"
+import {
+  fetchLatestNewsAction,
+  getNewsViewAction,
+  listActiveQueriesAction,
+  createNewsQueryAction,
+  updateNewsQueryAction,
+  deleteNewsQueryAction,
+} from "@/src/actions/news-actions"
+import type { NewsQueryDTO, NewsViewGroup } from "@/src/actions/news-actions"
 
-const newsCategories = [
-  {
-    id: "currency",
-    label: "為替",
-    description: "輸入原価と価格転嫁の意思決定に直結",
-    items: [
-      {
-        title: "為替：円安進行で輸入コストが上振れ",
-        source: "マーケット速報",
-        time: "1時間前",
-        impact: "high",
-        summary: "主要通貨で円安が進み、海外仕入れの原価が上昇傾向。発注タイミングの分散と価格改定シミュレーションが必要。",
-      },
-    ],
-  },
-  {
-    id: "materials",
-    label: "原材料",
-    description: "素材別の原価変動と配合見直しに影響",
-    items: [
-      {
-        title: "原材料：ポリエステル価格が上昇、春夏素材に影響",
-        source: "素材トレンド通信",
-        time: "3時間前",
-        impact: "medium",
-        summary: "原油高の影響でポリエステル系素材が上昇。薄手アウターの原価見直しが必要。",
-      },
-      {
-        title: "原材料コスト上昇：ウール糸の国際価格が前月比+8%",
-        source: "日経ファッション",
-        time: "2時間前",
-        impact: "high",
-        summary: "欧州の寒波と物流混乱でウール糸価格が上昇。コート類の原価率上振れが想定。",
-      },
-    ],
-  },
-  {
-    id: "trade",
-    label: "貿易・物流",
-    description: "リードタイムと支払条件に影響",
-    items: [
-      {
-        title: "物流：港湾の一部混雑解消、納期が通常リードタイムへ",
-        source: "ロジスティクス通信",
-        time: "昨日",
-        impact: "low",
-        summary: "海外工場からの仕入れが平常化。翌月末払いのキャッシュアウトが平準化する見込み。",
-      },
-      {
-        title: "通関検査の強化で一部原産地のリードタイム延長",
-        source: "貿易実務レポート",
-        time: "今日",
-        impact: "medium",
-        summary: "一部ルートで検査が強化され、平均3〜5日の遅延。発注前倒しの検討が必要。",
-      },
-    ],
-  },
-  {
-    id: "competitors",
-    label: "同業他社",
-    description: "価格戦略・MD切替えに影響",
-    items: [
-      {
-        title: "競合大手がアウターの値上げを発表",
-        source: "業界速報",
-        time: "今日",
-        impact: "medium",
-        summary: "主要ブランドが原材料高を理由に価格改定。自社の価格改定タイミング再検討が必要。",
-      },
-      {
-        title: "同業中堅がセール前倒しを発表",
-        source: "流通ニュース",
-        time: "昨日",
-        impact: "high",
-        summary: "在庫消化を優先する競合が増加。販促/値引き計画の再調整を検討。",
-      },
-    ],
-  },
-]
+interface Props {
+  initialData: NewsViewGroup[]
+  initialWeekStart: Date
+  initialQueries: NewsQueryDTO[]
+}
 
-export function AIAdviceBusinessNews() {
+export function BusinessNewsClient({ initialData, initialWeekStart, initialQueries }: Props) {
+  const [weekStart, setWeekStart] = useState<Date>(initialWeekStart)
+  const [viewData, setViewData] = useState<NewsViewGroup[]>(initialData)
+  const [queries, setQueries] = useState<NewsQueryDTO[]>(initialQueries)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingQuery, setEditingQuery] = useState<NewsQueryDTO | null>(null)
+  const [isFetching, startFetching] = useTransition()
+  const [isLoading, startLoading] = useTransition()
+
+  // ─── ニュース表示データ取得 ──────────────────────────────────────
+
+  const loadNewsView = useCallback(
+    (ws: Date) => {
+      startLoading(async () => {
+        const res = await getNewsViewAction(ws.toISOString())
+        if (res.success) setViewData(res.data)
+      })
+    },
+    [],
+  )
+
+  // ─── 週切替 ───────────────────────────────────────────────────────
+
+  function handleWeekChange(ws: Date) {
+    setWeekStart(ws)
+    loadNewsView(ws)
+  }
+
+  // ─── 最新ニュース取得 ─────────────────────────────────────────────
+
+  function handleFetch() {
+    startFetching(async () => {
+      await fetchLatestNewsAction()
+      // 取得後にクエリ一覧と表示データを更新
+      const [qRes, nRes] = await Promise.all([
+        listActiveQueriesAction(),
+        getNewsViewAction(weekStart.toISOString()),
+      ])
+      if (qRes.success) setQueries(qRes.data)
+      if (nRes.success) setViewData(nRes.data)
+    })
+  }
+
+  // ─── クエリ編集ダイアログ ─────────────────────────────────────────
+
+  function openCreate() {
+    setEditingQuery(null)
+    setDialogOpen(true)
+  }
+
+  function openEdit(q: NewsQueryDTO) {
+    setEditingQuery(q)
+    setDialogOpen(true)
+  }
+
+  async function handleSave(input: Parameters<typeof createNewsQueryAction>[0]) {
+    if (editingQuery) {
+      const res = await updateNewsQueryAction(editingQuery.id, input)
+      if (!res.success) throw new Error(res.error)
+    } else {
+      const res = await createNewsQueryAction(input)
+      if (!res.success) throw new Error(res.error)
+    }
+    // クエリ一覧と表示データを更新
+    const [qRes, nRes] = await Promise.all([
+      listActiveQueriesAction(),
+      getNewsViewAction(weekStart.toISOString()),
+    ])
+    if (qRes.success) setQueries(qRes.data)
+    if (nRes.success) setViewData(nRes.data)
+  }
+
+  async function handleDelete() {
+    if (!editingQuery) return
+    const res = await deleteNewsQueryAction(editingQuery.id)
+    if (!res.success) throw new Error(res.error)
+    const [qRes, nRes] = await Promise.all([
+      listActiveQueriesAction(),
+      getNewsViewAction(weekStart.toISOString()),
+    ])
+    if (qRes.success) setQueries(qRes.data)
+    if (nRes.success) setViewData(nRes.data)
+  }
+
+  // ─── レンダリング ─────────────────────────────────────────────────
+
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       <PageHeader
         eyebrow="AI Advice"
         title="経営判断に直結するニュース"
@@ -96,54 +121,146 @@ export function AIAdviceBusinessNews() {
         icon={Globe}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">経営判断に直結するニュース</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {newsCategories.map((category) => (
-            <div key={category.id} className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+      {/* ツールバー */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <WeekPicker weekStart={weekStart} onChange={handleWeekChange} />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleFetch}
+            disabled={isFetching || queries.length === 0}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-1.5", isFetching && "animate-spin")} />
+            {isFetching ? "取得中..." : "最新ニュースを取得"}
+          </Button>
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            検索フィルターを追加
+          </Button>
+        </div>
+      </div>
+
+      {/* フィルターが0件 */}
+      {queries.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <p className="mb-3">検索フィルターがまだ登録されていません。</p>
+            <Button variant="outline" size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              検索フィルターを追加
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ニュースカード（queryGroupId単位） */}
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">読み込み中...</div>
+      ) : (
+        viewData.map((group) => (
+          <Card key={group.queryGroupId}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{category.label}</p>
-                  <p className="text-xs text-muted-foreground">{category.description}</p>
+                  <CardTitle className="text-base">{group.queryName}</CardTitle>
                 </div>
-                <Badge variant="outline" className="text-xs">
-                  {category.items.length} 件
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {group.articles.length} 件
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      const q = queries.find(
+                        (q) => q.queryGroupId === group.queryGroupId,
+                      )
+                      if (q) openEdit(q)
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-3">
-                {category.items.map((news, idx) => (
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {group.articles.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  この週のニュースはありません。「最新ニュースを取得」ボタンで取得できます。
+                </p>
+              ) : (
+                group.articles.map((article) => (
                   <div
-                    key={`${category.id}-${idx}`}
+                    key={article.id}
                     className="p-3 rounded-xl border border-border/70 hover:border-[#345fe1]/60 hover:shadow-sm transition-colors"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <Badge
                         className={cn(
                           "text-xs",
-                          news.impact === "high"
+                          article.impact === "high"
                             ? "bg-red-100 text-red-700"
-                            : news.impact === "medium"
+                            : article.impact === "medium"
                               ? "bg-yellow-100 text-yellow-700"
-                              : "bg-green-100 text-green-700",
+                              : article.impact === "low"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-500",
                         )}
                       >
-                        影響度: {news.impact === "high" ? "高" : news.impact === "medium" ? "中" : "低"}
+                        影響度:{" "}
+                        {article.impact === "high"
+                          ? "高"
+                          : article.impact === "medium"
+                            ? "中"
+                            : article.impact === "low"
+                              ? "低"
+                              : "-"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {news.source} ・ {news.time}
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {article.sourceName && `${article.sourceName} ・ `}
+                        {new Date(article.publishedAt).toLocaleString("ja-JP", {
+                          timeZone: "Asia/Tokyo",
+                          month: "numeric",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
-                    <p className="font-semibold">{news.title}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{news.summary}</p>
+                    {article.sourceUrl ? (
+                      <a
+                        href={article.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold hover:underline"
+                      >
+                        {article.title}
+                      </a>
+                    ) : (
+                      <p className="font-semibold">{article.title}</p>
+                    )}
+                    {article.summary && (
+                      <p className="text-sm text-muted-foreground mt-1">{article.summary}</p>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        ))
+      )}
+
+      {/* 編集ダイアログ: key で editingQuery が変わるたびに state をリセット */}
+      <NewsQueryEditDialog
+        key={editingQuery?.id ?? "new"}
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        query={editingQuery}
+        onSave={handleSave}
+        onDelete={editingQuery ? handleDelete : undefined}
+      />
     </div>
   )
 }

@@ -1,0 +1,307 @@
+"use client"
+
+import { useState } from "react"
+import { X } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import type { NewsQueryDTO, QueryInput } from "@/src/actions/news-actions"
+import {
+  NEWSDATA_CATEGORIES,
+  NEWSDATA_CATEGORY_LABELS,
+  type NewsdataCategory,
+} from "@/src/lib/news-providers/newsdata-categories"
+
+interface NewsQueryEditDialogProps {
+  open: boolean
+  onClose: () => void
+  /** 編集モード: 既存クエリ。nullの場合は新規作成モード */
+  query: NewsQueryDTO | null
+  onSave: (input: QueryInput) => Promise<void>
+  onDelete?: () => Promise<void>
+}
+
+export function NewsQueryEditDialog({
+  open,
+  onClose,
+  query,
+  onSave,
+  onDelete,
+}: NewsQueryEditDialogProps) {
+  const isEdit = query !== null
+
+  const [name, setName] = useState(query?.name ?? "")
+  const [keywordInput, setKeywordInput] = useState("")
+  const [keywords, setKeywords] = useState<string[]>(
+    query?.keywords ? query.keywords.split(" ").filter(Boolean) : [],
+  )
+  const [sourceInput, setSourceInput] = useState("")
+  const [sources, setSources] = useState<string[]>(
+    query?.sources ? query.sources.split(",").map((s) => s.trim()).filter(Boolean) : [],
+  )
+  const [language, setLanguage] = useState(query?.language ?? "ja")
+  const [categoryMode, setCategoryMode] = useState<"include" | "exclude" | "none">(
+    query?.categoryMode ?? "none",
+  )
+  const [selectedCategories, setSelectedCategories] = useState<NewsdataCategory[]>(
+    query?.categories
+      ? (query.categories.split(",").filter((c) => NEWSDATA_CATEGORIES.includes(c as NewsdataCategory)) as NewsdataCategory[])
+      : [],
+  )
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [error, setError] = useState("")
+
+  // ダイアログが開くたびに初期化
+  function handleOpenChange(open: boolean) {
+    if (!open) onClose()
+  }
+
+  function addKeyword() {
+    const kw = keywordInput.trim()
+    if (!kw || keywords.includes(kw)) return
+    setKeywords((prev) => [...prev, kw])
+    setKeywordInput("")
+  }
+
+  function removeKeyword(kw: string) {
+    setKeywords((prev) => prev.filter((k) => k !== kw))
+  }
+
+  function addSource() {
+    const src = sourceInput.trim()
+    if (!src || sources.includes(src)) return
+    setSources((prev) => [...prev, src])
+    setSourceInput("")
+  }
+
+  function removeSource(src: string) {
+    setSources((prev) => prev.filter((s) => s !== src))
+  }
+
+  async function handleSave() {
+    setError("")
+    if (!name.trim()) {
+      setError("フィルター名を入力してください")
+      return
+    }
+    setIsSaving(true)
+    try {
+      await onSave({
+        name: name.trim(),
+        keywords: keywords.join(" ") || null,
+        language,
+        sources: sources.join(",") || null,
+        categoryMode: categoryMode === "none" ? null : categoryMode,
+        categories: categoryMode !== "none" && selectedCategories.length > 0
+          ? selectedCategories.join(",")
+          : null,
+      })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "保存に失敗しました")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!onDelete) return
+    setIsDeleting(true)
+    try {
+      await onDelete()
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "削除に失敗しました")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "検索フィルターを編集" : "検索フィルターを追加"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* フィルター名 */}
+          <div className="space-y-1.5">
+            <Label htmlFor="filter-name">フィルター名</Label>
+            <Input
+              id="filter-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例: 為替、原材料"
+            />
+          </div>
+
+          {/* キーワード */}
+          <div className="space-y-1.5">
+            <Label>キーワード</Label>
+            <div className="flex gap-2">
+              <Input
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                placeholder="例: 円安"
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKeyword())}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={addKeyword}>
+                追加
+              </Button>
+            </div>
+            {keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {keywords.map((kw) => (
+                  <Badge key={kw} variant="secondary" className="gap-1">
+                    {kw}
+                    <button onClick={() => removeKeyword(kw)} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ソース */}
+          <div className="space-y-1.5">
+            <Label>ソース（ドメインURL）</Label>
+            <div className="flex gap-2">
+              <Input
+                value={sourceInput}
+                onChange={(e) => setSourceInput(e.target.value)}
+                placeholder="例: nhk.or.jp, reuters.com"
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSource())}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={addSource}>
+                追加
+              </Button>
+            </div>
+            {sources.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {sources.map((src) => (
+                  <Badge key={src} variant="outline" className="gap-1">
+                    {src}
+                    <button onClick={() => removeSource(src)} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* カテゴリ */}
+          <div className="space-y-2">
+            <Label>カテゴリ</Label>
+            <Select value={categoryMode} onValueChange={(v) => {
+              setCategoryMode(v as "include" | "exclude" | "none")
+              setSelectedCategories([])
+            }}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">指定なし</SelectItem>
+                <SelectItem value="include">含むカテゴリを指定</SelectItem>
+                <SelectItem value="exclude">除外するカテゴリを指定</SelectItem>
+              </SelectContent>
+            </Select>
+            {categoryMode !== "none" && (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  最大5つまで選択できます（{selectedCategories.length}/5）
+                </p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 pt-1 max-h-48 overflow-y-auto border rounded-md p-3">
+                  {NEWSDATA_CATEGORIES.map((cat) => {
+                    const checked = selectedCategories.includes(cat)
+                    const disabled = !checked && selectedCategories.length >= 5
+                    return (
+                      <div key={cat} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`cat-${cat}`}
+                          checked={checked}
+                          disabled={disabled}
+                          onCheckedChange={(c) => {
+                            setSelectedCategories((prev) =>
+                              c ? [...prev, cat] : prev.filter((x) => x !== cat),
+                            )
+                          }}
+                        />
+                        <label
+                          htmlFor={`cat-${cat}`}
+                          className={`text-sm ${disabled ? "text-muted-foreground" : "cursor-pointer"}`}
+                        >
+                          {NEWSDATA_CATEGORY_LABELS[cat]}
+                        </label>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* APIドメイン（読み取り専用） */}
+          <div className="space-y-1.5">
+            <Label>ニュースAPI</Label>
+            <Input value="newsdata.io" readOnly className="bg-muted text-muted-foreground cursor-default" />
+          </div>
+
+          {/* 言語 */}
+          <div className="space-y-1.5">
+            <Label>言語</Label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ja">日本語 (ja)</SelectItem>
+                <SelectItem value="en">英語 (en)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+
+        <DialogFooter className="gap-2">
+          {isEdit && onDelete && (
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting || isSaving}
+              className="mr-auto"
+            >
+              {isDeleting ? "削除中..." : "削除"}
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose} disabled={isSaving || isDeleting}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || isDeleting}>
+            {isSaving ? "保存中..." : isEdit ? "保存" : "作成"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

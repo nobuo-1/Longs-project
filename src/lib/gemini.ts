@@ -127,6 +127,23 @@ function buildContents(
 }
 
 // ============================================================
+// Gemini Embedding
+// ============================================================
+
+export async function embedText(text: string): Promise<number[]> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new Error("GEMINI_API_KEY が設定されていません")
+
+  const ai = new GoogleGenAI({ apiKey })
+  const result = await ai.models.embedContent({
+    model: "gemini-embedding-001",
+    contents: text,
+    config: { outputDimensionality: 768 },
+  })
+  return result.embeddings?.[0]?.values ?? []
+}
+
+// ============================================================
 // Gemini API 画像生成
 // ============================================================
 

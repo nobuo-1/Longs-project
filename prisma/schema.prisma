@@ -67,6 +67,13 @@ enum UserRole {
   @@map("user_role")
 }
 
+enum NewsImpact {
+    high
+    medium
+    low
+    @@map("news_impact")
+  }
+
 // ============================================================
 // ユーザー・認証
 // ============================================================
@@ -647,3 +654,52 @@ model AiInsight {
 
   @@map("ai_insight")
 }
+
+
+// ============================================================
+// ニュース
+// ============================================================
+
+model NewsQuery {
+    id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    queryGroupId  String    @map("query_group_id") @db.Uuid          // 同一クエリの全世代で共有する安定キー（新規作成時は id と同値）
+    name          String                                              // 表示名: "為替", "原材料" など
+    keywords      String?                                            // q パラメータ（検索キーワード）
+    language      String?   @default("ja")                          // language/ lang
+    sources       String?                                            // カンマ区切りのソースID or ドメイン
+    domains       String?
+    categoryMode  String?   @map("category_mode")                    // "include" | "exclude" | null
+    categories    String?                                            // カンマ区切りカテゴリ: "business,technology"
+    sortBy        String?   @default("publishedAt")                  // publishedAt / relevancy 等
+    isActive      Boolean   @default(true) @map("is_active")
+    extraParams   Json?     @map("extra_params")                     // API固有の追加パラメータ
+    createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+    deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz()
+
+    news BusinessNews[]
+
+    @@index([queryGroupId])
+    @@map("news_query")
+}
+
+model BusinessNews {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid        
+  queryId      String     @map("query_id") @db.Uuid     //どのクエリで取得したか                                     
+  externalId   String?    @unique @map("external_id")
+  title        String                                      
+  summary      String?
+  sourceName   String?    @map("source_name")
+  sourceUrl    String?    @map("source_url")               
+  impact       NewsImpact?
+  publishedAt  DateTime   @map("published_at") @db.Timestamptz()
+  fetchedAt    DateTime   @default(now()) @map("fetched_at") @db.Timestamptz()
+  weekStart    DateTime   @map("week_start") @db.Date
+  embedding    Unsupported("vector(768)")?                
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz()                                          
+                
+  query NewsQuery @relation(fields: [queryId], references: [id])           
+
+  @@index([queryId, publishedAt(sort: Desc)])              
+  @@index([weekStart, queryId])
+  @@map("business_news")                                   
+}               
