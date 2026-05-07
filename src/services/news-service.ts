@@ -169,7 +169,7 @@ async function generateEmbeddingsForQuery(queryId: string): Promise<void> {
     FROM business_news
     WHERE embedding IS NULL
       AND deleted_at IS NULL
-      AND query_id = ${queryId}
+      AND query_id = ${queryId}::uuid
   `
 
   for (const row of rows) {
