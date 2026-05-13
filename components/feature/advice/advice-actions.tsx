@@ -98,7 +98,7 @@ export function AIAdviceActionCandidates() {
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>対応期限: {action.horizon}</span>
-                  <Button size="sm" className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white">
+                  <Button size="sm" className="bg-primary hover:bg-primary/80 text-white">
                     実行候補
                   </Button>
                 </div>

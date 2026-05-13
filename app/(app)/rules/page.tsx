@@ -231,7 +231,7 @@ export default function CalculationRulesPage() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#345fe1]" />
+                <Calendar className="w-5 h-5 text-primary" />
                 カテゴリ別 売り切り期限設定
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -248,7 +248,7 @@ export default function CalculationRulesPage() {
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                      className="bg-primary hover:bg-primary/80 text-white"
                       onClick={handleCategorySave}
                       disabled={savingIds.size > 0}
                     >
@@ -368,7 +368,7 @@ export default function CalculationRulesPage() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2">
-                <RefreshCcw className="w-5 h-5 text-[#345fe1]" />
+                <RefreshCcw className="w-5 h-5 text-primary" />
                 在庫回転率の計算期間設定
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -379,7 +379,7 @@ export default function CalculationRulesPage() {
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                      className="bg-primary hover:bg-primary/80 text-white"
                       onClick={handleTurnoverSave}
                       disabled={turnoverSaving}
                     >
@@ -421,10 +421,10 @@ export default function CalculationRulesPage() {
                     className={[
                       "rounded-lg border p-4 text-center transition-colors",
                       active
-                        ? "border-[#345fe1] bg-[#345fe1]/5 text-[#345fe1]"
+                        ? "border-primary bg-primary/5 text-primary"
                         : "border-border bg-background text-foreground",
                       isTurnoverEditing && !active
-                        ? "hover:border-[#345fe1]/50 hover:bg-[#345fe1]/5 cursor-pointer"
+                        ? "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
                         : "",
                       !isTurnoverEditing ? "cursor-default" : "",
                     ].join(" ")}
@@ -453,7 +453,7 @@ export default function CalculationRulesPage() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2">
-                <Settings2 className="w-5 h-5 text-[#345fe1]" />
+                <Settings2 className="w-5 h-5 text-primary" />
                 内部留保の設定
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -462,7 +462,7 @@ export default function CalculationRulesPage() {
                     <Button variant="outline" size="sm" onClick={handleReserveCancel} disabled={reserveSaving}>
                       キャンセル
                     </Button>
-                    <Button size="sm" className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white" onClick={handleReserveSave} disabled={reserveSaving}>
+                    <Button size="sm" className="bg-primary hover:bg-primary/80 text-white" onClick={handleReserveSave} disabled={reserveSaving}>
                       {reserveSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
                       保存
                     </Button>
@@ -524,7 +524,7 @@ export default function CalculationRulesPage() {
                           }
                           max={100}
                           step={1}
-                          className="[&_[data-slot=slider-track]]:bg-[#345fe1]/15 [&_[data-slot=slider-range]]:bg-[#345fe1] [&_[data-slot=slider-thumb]]:border-[#345fe1] [&_[data-slot=slider-thumb]]:focus-visible:ring-[#345fe1]/30 [&_[data-slot=slider-thumb]]:hover:ring-[#345fe1]/20"
+                          className="[&_[data-slot=slider-track]]:bg-primary/15 [&_[data-slot=slider-range]]:bg-primary [&_[data-slot=slider-thumb]]:border-primary [&_[data-slot=slider-thumb]]:focus-visible:ring-primary/30 [&_[data-slot=slider-thumb]]:hover:ring-primary/20"
                         />
                       )}
                     </div>
@@ -537,7 +537,7 @@ export default function CalculationRulesPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">可処分予算目安</p>
-                    <p className="text-lg font-bold text-[#345fe1]">{Math.max(0, 100 - reserveTotal)}%</p>
+                    <p className="text-lg font-bold text-primary">{Math.max(0, 100 - reserveTotal)}%</p>
                   </div>
                   {reserveTotal > 100 && (
                     <p className="text-xs text-red-500">合計が100%を超えています。</p>

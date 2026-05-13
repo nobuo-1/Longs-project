@@ -420,7 +420,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
           <CardContent className="pt-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#345fe1]" />
+                <Calendar className="w-5 h-5 text-primary" />
                 <span className="font-medium">週次レポート選択</span>
               </div>
               <WeekPicker weekStart={weekStart} onChange={setWeekStart} />
@@ -428,7 +428,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
           </CardContent>
         </Card>
 
-        <Card className="mb-6 bg-linear-to-r from-[#345fe1] to-[#2a4bb3] text-white">
+        <Card className="mb-6 bg-linear-to-r from-primary to-primary/80 text-white">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 flex items-center justify-center shrink-0">
@@ -457,7 +457,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-[#345fe1]" />
+                        <Icon className="w-5 h-5 text-primary" />
                       </div>
                       <span className="font-bold">{cat.name}</span>
                     </div>
@@ -476,7 +476,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
                   <p className="text-sm text-muted-foreground mb-3">{cat.advice}</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-[#345fe1] rounded-full" style={{ width: `${cat.confidence}%` }} />
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${cat.confidence}%` }} />
                     </div>
                     <span className="text-xs text-muted-foreground">信頼度 {cat.confidence}%</span>
                   </div>
@@ -623,7 +623,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
                 {defaultExcludedSources.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {defaultExcludedSources.map((src) => (
-                      <Badge key={src} className="gap-1 bg-red-100 text-red-700 border border-red-200">
+                      <Badge key={src} variant="outline" className="gap-1 opacity-80">
                         {src}
                         <button onClick={() => removeDefaultExcludedSource(src)} className="hover:opacity-70">
                           <X className="h-3 w-3" />
@@ -698,7 +698,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
                         <div
                           key={article.id}
                           className={cn(
-                            "p-3 rounded-xl border border-border/70 hover:border-[#345fe1]/60 hover:shadow-sm transition-colors",
+                            "p-3 rounded-xl border border-border/70 hover:border-primary/60 hover:shadow-sm transition-colors",
                             deletingIds.has(article.id) && "opacity-40 pointer-events-none",
                           )}
                         >

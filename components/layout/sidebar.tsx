@@ -170,7 +170,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
       >
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-3 min-h-13">
-            <div className="w-10 h-10 bg-[#345fe1] rounded-lg flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shrink-0">
               <Shirt className="w-6 h-6 text-white" />
             </div>
             <div className="space-y-0.5 overflow-hidden w-0 group-hover/sidebar:w-40 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75 min-h-10.5">
@@ -197,7 +197,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
                       onClick={() => handleMainClick(item)}
                       className={cn(
                         "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors text-left min-h-13",
-                        isActive ? "bg-[#345fe1] text-white" : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
+                        isActive ? "bg-primary text-white" : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -237,7 +237,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
                                 className={cn(
                                   "w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-left text-sm min-h-11",
                                   isSubActive
-                                    ? "bg-[#345fe1]/10 text-[#345fe1] font-medium"
+                                    ? "bg-primary/10 text-primary font-medium"
                                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent",
                                 )}
                               >
@@ -272,7 +272,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left",
                       isDataMainActive
-                        ? "bg-[#345fe1]/10 text-[#345fe1] font-medium"
+                        ? "bg-primary/10 text-primary font-medium"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent"
                     )}
                   >
@@ -288,7 +288,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left",
                       isDataImportActive
-                        ? "bg-[#345fe1]/10 text-[#345fe1] font-medium"
+                        ? "bg-primary/10 text-primary font-medium"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent"
                     )}
                   >
@@ -318,7 +318,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left",
                     pathname.startsWith("/admin/users")
-                      ? "bg-[#345fe1]/10 text-[#345fe1] font-medium"
+                      ? "bg-primary/10 text-primary font-medium"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent"
                   )}
                 >
@@ -344,7 +344,7 @@ export function Sidebar({ user }: { user: UserInfo }) {
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#345fe1] rounded-full flex items-center justify-center shrink-0 text-white font-medium text-sm">
+              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shrink-0 text-white font-medium text-sm">
                 {user.name ? user.name.charAt(0) : "?"}
               </div>
               <div className="text-sm overflow-hidden w-0 group-hover/sidebar:w-35 opacity-0 group-hover/sidebar:opacity-100 whitespace-nowrap pointer-events-none transition-[width,opacity] duration-200 ease-in-out delay-75">

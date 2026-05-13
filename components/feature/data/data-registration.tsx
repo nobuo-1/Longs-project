@@ -103,7 +103,7 @@ function IssueList({ items, emptyText }: { items: string[]; emptyText: string })
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="mt-2 text-xs text-[#345fe1] hover:underline flex items-center gap-1"
+          className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
         >
           <ChevronDown className="w-3 h-3" />
           残り{remaining}件を表示
@@ -113,7 +113,7 @@ function IssueList({ items, emptyText }: { items: string[]; emptyText: string })
         <button
           type="button"
           onClick={() => setShowAll(false)}
-          className="mt-2 text-xs text-[#345fe1] hover:underline flex items-center gap-1"
+          className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
         >
           <ChevronUp className="w-3 h-3" />
           折りたたむ
@@ -312,7 +312,7 @@ export function DataRegistration() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Table className="w-4 h-4 text-[#345fe1]" />
+                      <Table className="w-4 h-4 text-primary" />
                       {set.name}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">{set.description}</p>
@@ -323,10 +323,10 @@ export function DataRegistration() {
                     )}
                     <Button
                       variant="outline"
-                      className="text-[#345fe1] border-[#345fe1]"
+                      className="text-primary border-primary"
                       onClick={() => handleTemplateDownload(set.id)}
                     >
-                      <Download className="w-4 h-4 mr-2 text-[#345fe1]" />
+                      <Download className="w-4 h-4 mr-2 text-primary" />
                       テンプレート
                     </Button>
                     <Button
@@ -334,7 +334,7 @@ export function DataRegistration() {
                         setImportFile(null)
                         setImportTargetId(set.id)
                       }}
-                      className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                      className="bg-primary hover:bg-primary/80 text-white"
                       disabled={isImporting}
                     >
                       {isImporting ? (
@@ -375,7 +375,7 @@ export function DataRegistration() {
                               history,
                             })
                           }
-                          className="w-full text-left px-3 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#345fe1]"
+                          className="w-full text-left px-3 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
@@ -390,7 +390,7 @@ export function DataRegistration() {
                                   className={cn(
                                     "text-xs font-medium",
                                     history.status === "success"
-                                      ? "text-[#345fe1]"
+                                      ? "text-primary"
                                       : history.status === "partial"
                                         ? "text-amber-600"
                                         : "text-red-600",
@@ -429,7 +429,7 @@ export function DataRegistration() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-[#345fe1]" />
+              <Wallet className="w-5 h-5 text-primary" />
               固定費の設定
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -444,7 +444,7 @@ export function DataRegistration() {
                   <Button variant="outline" size="sm" onClick={handleFixedCancel} disabled={fixedSaving}>
                     キャンセル
                   </Button>
-                  <Button size="sm" className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white" onClick={handleFixedSave} disabled={fixedSaving}>
+                  <Button size="sm" className="bg-primary hover:bg-primary/80 text-white" onClick={handleFixedSave} disabled={fixedSaving}>
                     {fixedSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
                     保存
                   </Button>
@@ -547,7 +547,7 @@ export function DataRegistration() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Store className="w-5 h-5 text-[#345fe1]" />
+            <Store className="w-5 h-5 text-primary" />
             取引先設定
           </CardTitle>
         </CardHeader>
@@ -657,7 +657,7 @@ export function DataRegistration() {
                               <td className="px-3 py-2">
                                 <Button
                                   size="sm"
-                                  className="h-8 text-xs bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                                  className="h-8 text-xs bg-primary hover:bg-primary/80 text-white"
                                   disabled={!isDirty || isSaving}
                                   onClick={async () => {
                                     setSavingPartnerId(s.businessPartnerId)
@@ -784,7 +784,7 @@ export function DataRegistration() {
                               <td className="px-3 py-2">
                                 <Button
                                   size="sm"
-                                  className="h-8 text-xs bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                                  className="h-8 text-xs bg-primary hover:bg-primary/80 text-white"
                                   disabled={!isDirty || isSaving}
                                   onClick={async () => {
                                     setSavingPartnerId(c.businessPartnerId)
@@ -856,14 +856,14 @@ export function DataRegistration() {
                 }}
                 className={cn(
                   "rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors",
-                  isDragActive ? "border-[#345fe1] bg-[#345fe1]/10" : "border-border bg-muted/20",
+                  isDragActive ? "border-primary bg-primary/10" : "border-border bg-muted/20",
                 )}
               >
-                <Upload className="w-8 h-8 mx-auto text-[#345fe1] mb-2" />
+                <Upload className="w-8 h-8 mx-auto text-primary mb-2" />
                 <p className="text-sm font-medium">ファイルをドラッグ＆ドロップ</p>
                 <p className="text-xs text-muted-foreground">またはクリックして選択</p>
                 <label className="inline-flex mt-3">
-                  <span className="px-3 py-1.5 text-xs rounded-full border border-[#345fe1] text-[#345fe1] cursor-pointer">
+                  <span className="px-3 py-1.5 text-xs rounded-full border border-primary text-primary cursor-pointer">
                     ファイルを選択
                   </span>
                   <input
@@ -895,7 +895,7 @@ export function DataRegistration() {
                 キャンセル
               </Button>
               <Button
-                className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+                className="bg-primary hover:bg-primary/80 text-white"
                 onClick={handleImportConfirm}
                 disabled={!importFile || isImporting}
               >
@@ -944,7 +944,7 @@ export function DataRegistration() {
                     )}
                   >
                     {importFeedback.result.status === "success" ? (
-                      <CheckCircle2 className="w-5 h-5 text-[#345fe1] mt-0.5 shrink-0" />
+                      <CheckCircle2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                     ) : importFeedback.result.status === "partial" ? (
                       <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
                     ) : (
@@ -955,7 +955,7 @@ export function DataRegistration() {
                         className={cn(
                           "text-sm font-semibold",
                           importFeedback.result.status === "success"
-                            ? "text-[#345fe1]"
+                            ? "text-primary"
                             : importFeedback.result.status === "partial"
                               ? "text-amber-700"
                               : "text-red-700",
@@ -971,7 +971,7 @@ export function DataRegistration() {
                   <div className="grid grid-cols-5 gap-2">
                     {[
                       { label: "処理対象", value: importFeedback.result.rowsTotal, color: "" },
-                      { label: "正常", value: importFeedback.result.rowsSuccess, color: "text-[#345fe1]" },
+                      { label: "正常", value: importFeedback.result.rowsSuccess, color: "text-primary" },
                       { label: "スキップ", value: importFeedback.result.rowsSkipped, color: "" },
                       { label: "注意", value: importFeedback.result.warningsCount, color: "text-amber-600" },
                       { label: "エラー", value: importFeedback.result.errorsCount, color: "text-red-600" },
@@ -1056,7 +1056,7 @@ export function DataRegistration() {
               「その他」として取込む
             </Button>
             <Button
-              className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+              className="bg-primary hover:bg-primary/80 text-white"
               disabled={isImporting}
               onClick={async () => {
                 setCategoryConfirmOpen(false)
@@ -1099,7 +1099,7 @@ export function DataRegistration() {
                       className={cn(
                         "text-sm font-semibold",
                         activeHistory.history.status === "success"
-                          ? "text-[#345fe1]"
+                          ? "text-primary"
                           : activeHistory.history.status === "partial"
                             ? "text-amber-600"
                             : "text-red-600",
@@ -1125,7 +1125,7 @@ export function DataRegistration() {
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                 {[
                   { label: "処理対象", value: activeHistory.history.stats.processed, color: "" },
-                  { label: "正常", value: activeHistory.history.stats.success, color: "text-[#345fe1]" },
+                  { label: "正常", value: activeHistory.history.stats.success, color: "text-primary" },
                   { label: "スキップ", value: activeHistory.history.stats.skipped, color: "" },
                   { label: "注意", value: activeHistory.history.stats.warnings, color: "text-amber-600" },
                   { label: "エラー", value: activeHistory.history.stats.errors, color: "text-red-600" },

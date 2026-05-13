@@ -268,8 +268,8 @@ export function AIAdviceManagementReport() {
                   className={cn(
                     "rounded-2xl border p-4 text-left transition-all",
                     selectedLensId === lens.id
-                      ? "border-[#345fe1] bg-[#345fe1]/8 shadow-sm"
-                      : "border-border/70 hover:border-[#345fe1]/40",
+                      ? "border-primary bg-primary/8 shadow-sm"
+                      : "border-border/70 hover:border-primary/40",
                   )}
                 >
                   <p className="font-semibold text-foreground">{lens.label}</p>
@@ -303,8 +303,8 @@ export function AIAdviceManagementReport() {
                           size="sm"
                           className={cn(
                             isSelected
-                              ? "bg-[#345fe1] text-white hover:bg-[#2a4bb3]"
-                              : "bg-transparent hover:border-[#345fe1]/50",
+                              ? "bg-primary text-white hover:bg-primary/80"
+                              : "bg-transparent hover:border-primary/50",
                           )}
                           onClick={() =>
                             setSelectedSourceIds((prev) =>
@@ -335,7 +335,7 @@ export function AIAdviceManagementReport() {
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <p className="text-xs text-muted-foreground">推奨: ファイナンス + 在庫関連データ + AIアドバイスを横断選択すると判断精度が上がります。</p>
             <Button
-              className="bg-[#345fe1] hover:bg-[#2a4bb3] text-white"
+              className="bg-primary hover:bg-primary/80 text-white"
               onClick={() =>
                 setGeneratedReport({
                   lensId: selectedLensId,
@@ -353,7 +353,7 @@ export function AIAdviceManagementReport() {
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/60 bg-linear-to-r from-[#345fe1]/6 via-white to-cyan-50">
+        <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/6 via-white to-cyan-50">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base">AI経営判断レポート</CardTitle>
@@ -371,7 +371,7 @@ export function AIAdviceManagementReport() {
           </div>
         </CardHeader>
         <CardContent className="pt-6 space-y-6">
-          <div className="rounded-2xl border border-[#345fe1]/20 bg-[#345fe1]/5 p-5">
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
             <p className="text-sm font-semibold text-foreground mb-2">エグゼクティブサマリー</p>
             <p className="text-sm leading-7 text-foreground/90">{reportSummary.executiveSummary}</p>
           </div>
@@ -392,7 +392,7 @@ export function AIAdviceManagementReport() {
               <div className="mt-4 space-y-3">
                 {reportSummary.actions.map((action, index) => (
                   <div key={`${action}-${index}`} className="flex gap-3 rounded-xl border border-border/60 p-3">
-                    <div className="w-6 h-6 rounded-full bg-[#345fe1] text-white text-xs font-semibold flex items-center justify-center shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-primary text-white text-xs font-semibold flex items-center justify-center shrink-0">
                       {index + 1}
                     </div>
                     <p className="text-sm text-foreground/90">{action}</p>

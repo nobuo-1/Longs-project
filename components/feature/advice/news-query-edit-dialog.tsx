@@ -20,6 +20,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+
+const TagBadge = (props: React.ComponentProps<typeof Badge>) => (
+  <Badge variant="secondary" {...props} />
+)
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import type { NewsQueryDTO, QueryInput } from "@/src/actions/news-actions"
@@ -194,12 +198,12 @@ export function NewsQueryEditDialog({
               {keywords.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {keywords.map((kw) => (
-                    <Badge key={kw} variant="secondary" className="gap-1">
+                    <TagBadge key={kw} className="gap-1">
                       {kw}
                       <button onClick={() => removeKeyword(kw)} className="hover:text-destructive">
                         <X className="h-3 w-3" />
                       </button>
-                    </Badge>
+                    </TagBadge>
                   ))}
                 </div>
               )}
@@ -251,12 +255,12 @@ export function NewsQueryEditDialog({
               {notKeywords.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {notKeywords.map((kw) => (
-                    <Badge key={kw} variant="destructive" className="gap-1 opacity-80">
+                    <TagBadge key={kw} className="gap-1 opacity-80">
                       NOT {kw}
                       <button onClick={() => removeNotKeyword(kw)} className="hover:opacity-70">
                         <X className="h-3 w-3" />
                       </button>
-                    </Badge>
+                    </TagBadge>
                   ))}
                 </div>
               )}
@@ -266,7 +270,7 @@ export function NewsQueryEditDialog({
           {/* ソース */}
           <div className="space-y-2">
             <Label>ソース（ドメインURL）</Label>
-            <Select value={sourceMode} onValueChange={(v) => {
+            <Select value={sourceMode} onValueChange={(v: string) => {
               setSourceMode(v as "include" | "exclude" | "none")
               setSources([])
             }}>
@@ -295,12 +299,12 @@ export function NewsQueryEditDialog({
                 {sources.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {sources.map((src) => (
-                      <Badge key={src} variant={sourceMode === "exclude" ? "destructive" : "outline"} className="gap-1">
+                      <TagBadge key={src} className="gap-1">
                         {src}
                         <button onClick={() => removeSource(src)} className="hover:opacity-70">
                           <X className="h-3 w-3" />
                         </button>
-                      </Badge>
+                      </TagBadge>
                     ))}
                   </div>
                 )}
@@ -311,7 +315,7 @@ export function NewsQueryEditDialog({
           {/* カテゴリ */}
           <div className="space-y-2">
             <Label>カテゴリ</Label>
-            <Select value={categoryMode} onValueChange={(v) => {
+            <Select value={categoryMode} onValueChange={(v: string) => {
               setCategoryMode(v as "include" | "exclude" | "none")
               setSelectedCategories([])
             }}>
@@ -339,7 +343,7 @@ export function NewsQueryEditDialog({
                           id={`cat-${cat}`}
                           checked={checked}
                           disabled={disabled}
-                          onCheckedChange={(c) => {
+                          onCheckedChange={(c: boolean) => {
                             setSelectedCategories((prev) =>
                               c ? [...prev, cat] : prev.filter((x) => x !== cat),
                             )
