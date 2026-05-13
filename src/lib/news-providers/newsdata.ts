@@ -1,7 +1,36 @@
 import type { NewsProvider, NewsProviderArticle } from "./types"
 
+/**
+ * keywords（カンマ区切り）・keywordMode（AND/OR）・notKeywords（カンマ区切り）から
+ * NewsData.io の q パラメータ値を組み立てる。
+ * スペースを含む語句は "" で囲む。演算子との間は半角スペース。
+ */
+function buildKeywordQuery(
+  keywords: string | null | undefined,
+  keywordMode: "AND" | "OR" | null | undefined,
+  notKeywords: string | null | undefined,
+): string | null {
+  const wrap = (kw: string) => (kw.includes(" ") ? `"${kw}"` : kw)
+  const mode = keywordMode ?? "AND"
+
+  const mainParts = keywords
+    ? keywords.split(",").map((s) => s.trim()).filter(Boolean).map(wrap)
+    : []
+
+  const notParts = notKeywords
+    ? notKeywords.split(",").map((s) => s.trim()).filter(Boolean).map((kw) => `NOT ${wrap(kw)}`)
+    : []
+
+  if (mainParts.length === 0 && notParts.length === 0) return null
+
+  const parts: string[] = []
+  if (mainParts.length > 0) parts.push(mainParts.join(` ${mode} `))
+  parts.push(...notParts)
+  return parts.join(" ")
+}
+
 export const newsdataProvider: NewsProvider = {
-  async fetch({ keywords, language, sources, domains, categoryMode, categories }) {
+  async fetch({ keywords, keywordMode, notKeywords, language, sources, sourceMode, domains, categoryMode, categories }) {
     const apiKey = process.env.NEWSDATA_IO_API_KEY
     if (!apiKey) {
       console.warn("[newsdata] NEWSDATA_IO_API_KEY が未設定です。スキップします。")
@@ -10,7 +39,8 @@ export const newsdataProvider: NewsProvider = {
 
     try {
       const params = new URLSearchParams({ apikey: apiKey })
-      if (keywords) params.set("q", keywords)
+      const q = buildKeywordQuery(keywords, keywordMode, notKeywords)
+      if (q) params.set("q", q)
       if (language) params.set("language", language)
       if (sources) {
         // ドメインURL正規化: https://, http://, www. を除去
@@ -19,7 +49,11 @@ export const newsdataProvider: NewsProvider = {
           .map((s) => s.trim().replace(/^https?:\/\//, "").replace(/^www\./, ""))
           .filter(Boolean)
           .join(",")
-        params.set("domainurl", normalized)
+        if (sourceMode === "exclude") {
+          params.set("excludedomain", normalized)
+        } else {
+          params.set("domainurl", normalized)
+        }
       }
       // domains はAPI名の記録用（例: newsdata.io）のためクエリパラメータには使用しない
       if (categories && categoryMode === "include") params.set("category", categories)

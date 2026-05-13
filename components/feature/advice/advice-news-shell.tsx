@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   Newspaper,
+  Settings2,
+  X,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -35,8 +37,10 @@ import {
   updateNewsQueryAction,
   deleteNewsQueryAction,
   deleteNewsArticleAction,
+  setDefaultExcludedSourcesAction,
 } from "@/src/actions/news-actions"
 import type { NewsQueryDTO, NewsViewGroup } from "@/src/actions/news-actions"
+import { Input } from "@/components/ui/input"
 
 // ─── 週次ニュース モックデータ ────────────────────────────────────────────
 
@@ -258,9 +262,10 @@ interface Props {
   initialData: NewsViewGroup[]
   initialWeekStart: Date
   initialQueries: NewsQueryDTO[]
+  initialDefaultExcludedSources: string | null
 }
 
-export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries }: Props) {
+export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries, initialDefaultExcludedSources }: Props) {
   const [weekStart, setWeekStart] = useState<Date>(initialWeekStart)
 
   // ─── 週次ニュース ─────────────────────────────────────────────────
@@ -277,6 +282,37 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries 
   const [isLoading, startLoading] = useTransition()
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+
+  // ─── デフォルト除外ソース設定 ─────────────────────────────────────
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [defaultExcludedSources, setDefaultExcludedSources] = useState<string[]>(
+    initialDefaultExcludedSources
+      ? initialDefaultExcludedSources.split(",").map((s) => s.trim()).filter(Boolean)
+      : [],
+  )
+  const [defaultSourceInput, setDefaultSourceInput] = useState("")
+  const [isSavingSettings, startSavingSettings] = useTransition()
+  const [settingsError, setSettingsError] = useState("")
+
+  function addDefaultExcludedSource() {
+    const src = defaultSourceInput.trim()
+    if (!src || defaultExcludedSources.includes(src)) return
+    setDefaultExcludedSources((prev) => [...prev, src])
+    setDefaultSourceInput("")
+  }
+
+  function removeDefaultExcludedSource(src: string) {
+    setDefaultExcludedSources((prev) => prev.filter((s) => s !== src))
+  }
+
+  function handleSaveSettings() {
+    setSettingsError("")
+    startSavingSettings(async () => {
+      const value = defaultExcludedSources.join(",") || null
+      const res = await setDefaultExcludedSourcesAction(value)
+      if (!res.success) setSettingsError(res.error)
+    })
+  }
 
   const loadNewsView = useCallback((ws: Date) => {
     startLoading(async () => {
@@ -538,6 +574,15 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries 
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setSettingsOpen((v) => !v)}
+              className={cn(settingsOpen && "bg-muted")}
+            >
+              <Settings2 className="h-4 w-4 mr-1.5" />
+              共通設定
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleFetch}
               disabled={isFetching || queries.length === 0}
             >
@@ -550,6 +595,51 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries 
             </Button>
           </div>
         </div>
+
+        {/* 共通設定パネル */}
+        {settingsOpen && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">共通設定</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium">デフォルト除外ソース</p>
+                <p className="text-xs text-muted-foreground">
+                  「除外するソースを指定」または指定なしのフィルターに自動で適用されます。「含むソースを指定」のフィルターには適用されません。
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={defaultSourceInput}
+                    onChange={(e) => setDefaultSourceInput(e.target.value)}
+                    placeholder="例: nhk.or.jp"
+                    className="h-8 text-sm"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addDefaultExcludedSource())}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={addDefaultExcludedSource}>
+                    追加
+                  </Button>
+                </div>
+                {defaultExcludedSources.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {defaultExcludedSources.map((src) => (
+                      <Badge key={src} className="gap-1 bg-red-100 text-red-700 border border-red-200">
+                        {src}
+                        <button onClick={() => removeDefaultExcludedSource(src)} className="hover:opacity-70">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {settingsError && <p className="text-xs text-destructive">{settingsError}</p>}
+              <Button size="sm" onClick={handleSaveSettings} disabled={isSavingSettings}>
+                {isSavingSettings ? "保存中..." : "保存"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* フィルターが0件 */}
         {queries.length === 0 && (

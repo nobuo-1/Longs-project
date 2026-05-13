@@ -10,8 +10,11 @@ export interface NewsProviderArticle {
 export interface NewsProvider {
   fetch(query: {
     keywords?: string | null
+    keywordMode?: "AND" | "OR" | null
+    notKeywords?: string | null
     language?: string | null
     sources?: string | null
+    sourceMode?: "include" | "exclude" | null
     domains?: string | null
     categoryMode?: "include" | "exclude" | null
     categories?: string | null

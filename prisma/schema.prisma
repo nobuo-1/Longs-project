@@ -664,9 +664,12 @@ model NewsQuery {
     id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     queryGroupId  String    @map("query_group_id") @db.Uuid          // 同一クエリの全世代で共有する安定キー（新規作成時は id と同値）
     name          String                                              // 表示名: "為替", "原材料" など
-    keywords      String?                                            // q パラメータ（検索キーワード）
+    keywords      String?                                            // カンマ区切りのメインキーワード
+    keywordMode   String?   @default("AND") @map("keyword_mode")    // "AND" | "OR"
+    notKeywords   String?   @map("not_keywords")                    // カンマ区切りのNOTキーワード
     language      String?   @default("ja")                          // language/ lang
     sources       String?                                            // カンマ区切りのソースID or ドメイン
+    sourceMode    String?   @map("source_mode")                      // "include" | "exclude" | null
     domains       String?
     categoryMode  String?   @map("category_mode")                    // "include" | "exclude" | null
     categories    String?                                            // カンマ区切りカテゴリ: "business,technology"

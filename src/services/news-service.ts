@@ -3,12 +3,16 @@ import { getWeekStart } from "@/src/lib/news-week"
 import { newsdataProvider } from "@/src/lib/news-providers/newsdata"
 import type { NewsProvider } from "@/src/lib/news-providers/types"
 import { embedText } from "@/src/lib/gemini"
+import { getDefaultExcludedSources } from "@/src/services/system-setting-service"
 
 export interface QueryInput {
   name: string
   keywords?: string | null
+  keywordMode?: "AND" | "OR" | null
+  notKeywords?: string | null
   language?: string | null
   sources?: string | null
+  sourceMode?: "include" | "exclude" | null
   domains?: string | null
   categoryMode?: "include" | "exclude" | null
   categories?: string | null
@@ -19,8 +23,11 @@ export interface NewsQueryDTO {
   queryGroupId: string
   name: string
   keywords: string | null
+  keywordMode: "AND" | "OR" | null
+  notKeywords: string | null
   language: string | null
   sources: string | null
+  sourceMode: "include" | "exclude" | null
   domains: string | null
   categoryMode: "include" | "exclude" | null
   categories: string | null
@@ -85,8 +92,11 @@ export async function createQuery(input: QueryInput): Promise<NewsQueryDTO> {
       queryGroupId: id,
       name: input.name,
       keywords: input.keywords ?? null,
+      keywordMode: input.keywordMode ?? "AND",
+      notKeywords: input.notKeywords ?? null,
       language: input.language ?? "ja",
       sources: input.sources ?? null,
+      sourceMode: input.sourceMode ?? null,
       domains: input.domains ?? null,
       categoryMode: input.categoryMode ?? null,
       categories: input.categories ?? null,
@@ -113,8 +123,11 @@ export async function updateQuery(id: string, input: QueryInput): Promise<NewsQu
         queryGroupId: old.queryGroupId,
         name: input.name,
         keywords: input.keywords ?? null,
+        keywordMode: input.keywordMode ?? "AND",
+        notKeywords: input.notKeywords ?? null,
         language: input.language ?? "ja",
         sources: input.sources ?? null,
+        sourceMode: input.sourceMode ?? null,
         domains: input.domains ?? null,
         categoryMode: input.categoryMode ?? null,
         categories: input.categories ?? null,
@@ -155,14 +168,31 @@ export async function fetchAndStoreAllActiveQueries(): Promise<void> {
   if (queries.length === 0) return
 
   const weekStart = getWeekStart(new Date())
+  const defaultExcluded = await getDefaultExcludedSources()
 
   await Promise.all(
     queries.map(async (q) => {
+      // デフォルト除外ソースをマージ（含むソース指定の場合は無視）
+      let effectiveSources = q.sources
+      let effectiveSourceMode = q.sourceMode
+      if (defaultExcluded && q.sourceMode !== "include") {
+        const existing = q.sourceMode === "exclude" && q.sources
+          ? q.sources.split(",").map((s) => s.trim()).filter(Boolean)
+          : []
+        const defaults = defaultExcluded.split(",").map((s) => s.trim()).filter(Boolean)
+        const merged = [...new Set([...existing, ...defaults])]
+        effectiveSources = merged.join(",")
+        effectiveSourceMode = "exclude"
+      }
+
       try {
         const articles = await provider.fetch({
           keywords: q.keywords,
+          keywordMode: q.keywordMode,
+          notKeywords: q.notKeywords,
           language: q.language,
-          sources: q.sources,
+          sources: effectiveSources,
+          sourceMode: effectiveSourceMode,
           domains: q.domains,
           categoryMode: q.categoryMode,
           categories: q.categories,
@@ -300,8 +330,11 @@ function toQueryDTO(row: {
   queryGroupId: string
   name: string
   keywords: string | null
+  keywordMode: string | null
+  notKeywords: string | null
   language: string | null
   sources: string | null
+  sourceMode: string | null
   domains: string | null
   categoryMode: string | null
   categories: string | null
@@ -312,8 +345,11 @@ function toQueryDTO(row: {
     queryGroupId: row.queryGroupId,
     name: row.name,
     keywords: row.keywords,
+    keywordMode: (row.keywordMode as "AND" | "OR") ?? null,
+    notKeywords: row.notKeywords,
     language: row.language,
     sources: row.sources,
+    sourceMode: (row.sourceMode as "include" | "exclude") ?? null,
     domains: row.domains,
     categoryMode: (row.categoryMode as "include" | "exclude") ?? null,
     categories: row.categories,

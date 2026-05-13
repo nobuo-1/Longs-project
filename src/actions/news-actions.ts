@@ -3,6 +3,7 @@
 import { requireRole } from "@/src/lib/permissions"
 import * as svc from "@/src/services/news-service"
 import type { QueryInput, NewsQueryDTO, NewsViewGroup } from "@/src/services/news-service"
+import { getDefaultExcludedSources, setDefaultExcludedSources } from "@/src/services/system-setting-service"
 
 export type { QueryInput, NewsQueryDTO, NewsViewGroup }
 
@@ -116,6 +117,40 @@ export async function deleteNewsArticleAction(
     }
     console.error("[deleteNewsArticleAction]", e)
     return { success: false, error: "記事の削除に失敗しました" }
+  }
+}
+
+// ─── デフォルト除外ソース設定 ─────────────────────────────────────
+
+/** デフォルト除外ソース（カンマ区切りドメイン）を取得 */
+export async function getDefaultExcludedSourcesAction(): Promise<
+  { success: true; data: string | null } | { success: false; error: string }
+> {
+  try {
+    await requireRole(["admin", "manager"])
+    const data = await getDefaultExcludedSources()
+    return { success: true, data }
+  } catch (e) {
+    if (e instanceof Error && (e.message === "認証が必要です" || e.message === "権限がありません")) {
+      return { success: false, error: e.message }
+    }
+    return { success: false, error: "設定の取得に失敗しました" }
+  }
+}
+
+/** デフォルト除外ソース（カンマ区切りドメイン）を保存 */
+export async function setDefaultExcludedSourcesAction(
+  sources: string | null,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requireRole(["admin", "manager"])
+    await setDefaultExcludedSources(sources)
+    return { success: true }
+  } catch (e) {
+    if (e instanceof Error && (e.message === "認証が必要です" || e.message === "権限がありません")) {
+      return { success: false, error: e.message }
+    }
+    return { success: false, error: "設定の保存に失敗しました" }
   }
 }
 

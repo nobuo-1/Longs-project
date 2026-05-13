@@ -948,6 +948,19 @@ async function main() {
   })
   console.log("✓ NewsQuery (11件: 4グループ、アクティブ4件 + 非アクティブ7件)")
 
+  // ── SystemSetting（デフォルト除外ソース） ─────────────────────────────────────
+  await prisma.systemSetting.upsert({
+    where: { key: "news.default_excluded_sources" },
+    update: {
+      value: "bloomberg.com,docomo.ne.jp,bunkanews.jp,investing.com,topics.or.jp,news.google.com,prtimes.jp,news.yahoo.co.jp",
+    },
+    create: {
+      key: "news.default_excluded_sources",
+      value: "bloomberg.com,docomo.ne.jp,bunkanews.jp,investing.com,topics.or.jp,news.google.com,prtimes.jp,news.yahoo.co.jp",
+    },
+  })
+  console.log("✓ SystemSetting (news.default_excluded_sources)")
+
   // ── BusinessNews ──────────────────────────────────────────────────────────────
   // embedding は Prisma Unsupported 型のため createMany では設定不可。
   // シード後に `npx tsx scripts/backfill-embeddings.ts` で別途生成すること。

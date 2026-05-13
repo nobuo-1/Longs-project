@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from "@/lib/utils"
 import type { NewsQueryDTO, QueryInput } from "@/src/actions/news-actions"
 import {
   NEWSDATA_CATEGORIES,
@@ -47,13 +48,21 @@ export function NewsQueryEditDialog({
   const isEdit = query !== null
 
   const [name, setName] = useState(query?.name ?? "")
+  const [keywordMode, setKeywordMode] = useState<"AND" | "OR">(query?.keywordMode ?? "AND")
   const [keywordInput, setKeywordInput] = useState("")
   const [keywords, setKeywords] = useState<string[]>(
-    query?.keywords ? query.keywords.split(" ").filter(Boolean) : [],
+    query?.keywords ? query.keywords.split(",").map((s) => s.trim()).filter(Boolean) : [],
+  )
+  const [notKeywordInput, setNotKeywordInput] = useState("")
+  const [notKeywords, setNotKeywords] = useState<string[]>(
+    query?.notKeywords ? query.notKeywords.split(",").map((s) => s.trim()).filter(Boolean) : [],
   )
   const [sourceInput, setSourceInput] = useState("")
   const [sources, setSources] = useState<string[]>(
     query?.sources ? query.sources.split(",").map((s) => s.trim()).filter(Boolean) : [],
+  )
+  const [sourceMode, setSourceMode] = useState<"include" | "exclude" | "none">(
+    query?.sourceMode ?? "none",
   )
   const [language, setLanguage] = useState(query?.language ?? "ja")
   const [categoryMode, setCategoryMode] = useState<"include" | "exclude" | "none">(
@@ -84,6 +93,17 @@ export function NewsQueryEditDialog({
     setKeywords((prev) => prev.filter((k) => k !== kw))
   }
 
+  function addNotKeyword() {
+    const kw = notKeywordInput.trim()
+    if (!kw || notKeywords.includes(kw)) return
+    setNotKeywords((prev) => [...prev, kw])
+    setNotKeywordInput("")
+  }
+
+  function removeNotKeyword(kw: string) {
+    setNotKeywords((prev) => prev.filter((k) => k !== kw))
+  }
+
   function addSource() {
     const src = sourceInput.trim()
     if (!src || sources.includes(src)) return
@@ -105,9 +125,12 @@ export function NewsQueryEditDialog({
     try {
       await onSave({
         name: name.trim(),
-        keywords: keywords.join(" ") || null,
+        keywords: keywords.join(",") || null,
+        keywordMode,
+        notKeywords: notKeywords.join(",") || null,
         language,
         sources: sources.join(",") || null,
+        sourceMode: sourceMode === "none" ? null : sourceMode,
         categoryMode: categoryMode === "none" ? null : categoryMode,
         categories: categoryMode !== "none" && selectedCategories.length > 0
           ? selectedCategories.join(",")
@@ -136,12 +159,12 @@ export function NewsQueryEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md flex flex-col max-h-[90vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{isEdit ? "検索フィルターを編集" : "検索フィルターを追加"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
           {/* フィルター名 */}
           <div className="space-y-1.5">
             <Label htmlFor="filter-name">フィルター名</Label>
@@ -154,58 +177,134 @@ export function NewsQueryEditDialog({
           </div>
 
           {/* キーワード */}
-          <div className="space-y-1.5">
-            <Label>キーワード</Label>
-            <div className="flex gap-2">
-              <Input
-                value={keywordInput}
-                onChange={(e) => setKeywordInput(e.target.value)}
-                placeholder="例: 円安"
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKeyword())}
-              />
-              <Button type="button" variant="outline" size="sm" onClick={addKeyword}>
-                追加
-              </Button>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>キーワード</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={keywordInput}
+                  onChange={(e) => setKeywordInput(e.target.value)}
+                  placeholder="例: 円安、レオナルド ディカプリオ"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKeyword())}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={addKeyword}>
+                  追加
+                </Button>
+              </div>
+              {keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {keywords.map((kw) => (
+                    <Badge key={kw} variant="secondary" className="gap-1">
+                      {kw}
+                      <button onClick={() => removeKeyword(kw)} className="hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
-            {keywords.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {keywords.map((kw) => (
-                  <Badge key={kw} variant="secondary" className="gap-1">
-                    {kw}
-                    <button onClick={() => removeKeyword(kw)} className="hover:text-destructive">
-                      <X className="h-3 w-3" />
+
+            {/* AND/OR モード */}
+            {keywords.length >= 2 && (
+              <div className="space-y-1.5">
+                <Label>キーワードの結合方法</Label>
+                <div className="flex gap-1">
+                  {(["AND", "OR"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setKeywordMode(mode)}
+                      className={cn(
+                        "w-16 py-1 rounded-md text-sm font-medium transition-all",
+                        keywordMode === mode
+                          ? "bg-foreground text-background"
+                          : "text-muted-foreground opacity-40 hover:opacity-70",
+                      )}
+                    >
+                      {mode}
                     </button>
-                  </Badge>
-                ))}
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {keywordMode === "AND"
+                    ? "すべてのキーワードを含む記事を取得します"
+                    : "いずれかのキーワードを含む記事を取得します"}
+                </p>
               </div>
             )}
+
+            {/* 除外キーワード（NOT） */}
+            <div className="space-y-1.5">
+              <Label>除外キーワード</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={notKeywordInput}
+                  onChange={(e) => setNotKeywordInput(e.target.value)}
+                  placeholder="例: 不正"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNotKeyword())}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={addNotKeyword}>
+                  追加
+                </Button>
+              </div>
+              {notKeywords.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {notKeywords.map((kw) => (
+                    <Badge key={kw} variant="destructive" className="gap-1 opacity-80">
+                      NOT {kw}
+                      <button onClick={() => removeNotKeyword(kw)} className="hover:opacity-70">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* ソース */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>ソース（ドメインURL）</Label>
-            <div className="flex gap-2">
-              <Input
-                value={sourceInput}
-                onChange={(e) => setSourceInput(e.target.value)}
-                placeholder="例: nhk.or.jp, reuters.com"
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSource())}
-              />
-              <Button type="button" variant="outline" size="sm" onClick={addSource}>
-                追加
-              </Button>
-            </div>
-            {sources.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {sources.map((src) => (
-                  <Badge key={src} variant="outline" className="gap-1">
-                    {src}
-                    <button onClick={() => removeSource(src)} className="hover:text-destructive">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+            <Select value={sourceMode} onValueChange={(v) => {
+              setSourceMode(v as "include" | "exclude" | "none")
+              setSources([])
+            }}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">指定なし</SelectItem>
+                <SelectItem value="include">含むソースを指定</SelectItem>
+                <SelectItem value="exclude">除外するソースを指定</SelectItem>
+              </SelectContent>
+            </Select>
+            {sourceMode !== "none" && (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={sourceInput}
+                    onChange={(e) => setSourceInput(e.target.value)}
+                    placeholder="例: nhk.or.jp, reuters.com"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSource())}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={addSource}>
+                    追加
+                  </Button>
+                </div>
+                {sources.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {sources.map((src) => (
+                      <Badge key={src} variant={sourceMode === "exclude" ? "destructive" : "outline"} className="gap-1">
+                        {src}
+                        <button onClick={() => removeSource(src)} className="hover:opacity-70">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -283,7 +382,7 @@ export function NewsQueryEditDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 shrink-0">
           {isEdit && onDelete && (
             <Button
               variant="destructive"
