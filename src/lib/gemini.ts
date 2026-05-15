@@ -127,6 +127,87 @@ function buildContents(
 }
 
 // ============================================================
+// 環境要因分析（テキスト生成）
+// ============================================================
+
+export type FactorAnalysisResult = {
+  content: string
+  impact: "high" | "medium" | "low"
+}
+
+const FACTOR_TEXT_MODEL = "gemini-2.5-flash"
+
+const factorSystemPrompts: Record<"weather" | "global" | "trend", string> = {
+  weather:
+    "あなたはアパレル企業の経営アドバイザーです。以下のニュース記事を読み、「気象・天候」の観点からアパレル企業の今週の経営判断（在庫・販売戦略など）に役立つアドバイスを100文字程度の日本語で作成してください。また、ビジネスへの影響度を high/medium/low で評価してください。必ず次のJSON形式のみで回答してください: {\"content\": \"アドバイス\", \"impact\": \"high|medium|low\"}",
+  global:
+    "あなたはアパレル企業の経営アドバイザーです。以下のニュース記事を読み、「国際情勢・物流・為替・原材料」の観点からアパレル企業の今週の経営判断に役立つアドバイスを100文字程度の日本語で作成してください。また、ビジネスへの影響度を high/medium/low で評価してください。必ず次のJSON形式のみで回答してください: {\"content\": \"アドバイス\", \"impact\": \"high|medium|low\"}",
+  trend:
+    "あなたはアパレル企業の経営アドバイザーです。以下のニュース記事を読み、「消費者トレンド・SNS・ファッション動向」の観点からアパレル企業の今週の経営判断に役立つアドバイスを100文字程度の日本語で作成してください。また、ビジネスへの影響度を high/medium/low で評価してください。必ず次のJSON形式のみで回答してください: {\"content\": \"アドバイス\", \"impact\": \"high|medium|low\"}",
+}
+
+export async function generateFactorAnalysis(
+  factorType: "weather" | "global" | "trend",
+  articles: { title: string; summary: string | null; publishedAt: Date }[],
+  weekLabel: string,
+): Promise<FactorAnalysisResult> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new Error("GEMINI_API_KEY が設定されていません")
+
+  if (articles.length === 0) {
+    return { content: "対象週のニュースデータがありません。", impact: "low" }
+  }
+
+  const ai = new GoogleGenAI({ apiKey })
+
+  const articlesList = articles
+    .slice(0, 30)
+    .map((a, i) => `${i + 1}. ${a.title}${a.summary ? `\n   ${a.summary}` : ""}`)
+    .join("\n")
+
+  const prompt = `${factorSystemPrompts[factorType]}\n\n対象週: ${weekLabel}\n\nニュース記事一覧:\n${articlesList}`
+
+  console.log("[generateFactorAnalysis] Request:", JSON.stringify({
+    model: FACTOR_TEXT_MODEL,
+    factorType,
+    weekLabel,
+    articleCount: articles.length,
+    promptLength: prompt.length,
+    prompt,
+  }, null, 2))
+
+  const response = await ai.models.generateContent({
+    model: FACTOR_TEXT_MODEL,
+    contents: [{ text: prompt }],
+  })
+
+  const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+
+  console.log("[generateFactorAnalysis] Response:", JSON.stringify({
+    factorType,
+    rawText: text,
+    usageMetadata: response.usageMetadata,
+    finishReason: response.candidates?.[0]?.finishReason,
+  }, null, 2))
+
+  const jsonMatch = text.match(/\{[\s\S]*?\}/)
+  if (!jsonMatch) {
+    console.error("[generateFactorAnalysis] JSON parse failed:", text)
+    return { content: "分析結果の解析に失敗しました。", impact: "low" }
+  }
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0])
+    const impact = (["high", "medium", "low"] as const).includes(parsed.impact)
+      ? (parsed.impact as "high" | "medium" | "low")
+      : "low"
+    return { content: String(parsed.content ?? "").slice(0, 150), impact }
+  } catch {
+    return { content: "分析結果の解析に失敗しました。", impact: "low" }
+  }
+}
+
+// ============================================================
 // Gemini Embedding
 // ============================================================
 

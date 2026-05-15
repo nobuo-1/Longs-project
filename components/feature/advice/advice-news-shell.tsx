@@ -19,16 +19,19 @@ import {
   Newspaper,
   Settings2,
   X,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { PageHeader } from "@/components/feature/page-header"
 import { WeekPicker } from "@/components/feature/advice/week-picker"
 import { NewsQueryEditDialog } from "@/components/feature/advice/news-query-edit-dialog"
 import { cn } from "@/lib/utils"
-import { getWeekStart } from "@/src/lib/news-week"
+import { getWeekStart, isCurrentWeek } from "@/src/lib/news-week"
 import {
   fetchLatestNewsAction,
   getNewsViewAction,
@@ -40,6 +43,13 @@ import {
   setDefaultExcludedSourcesAction,
 } from "@/src/actions/news-actions"
 import type { NewsQueryDTO, NewsViewGroup } from "@/src/actions/news-actions"
+import {
+  addFactorConfigAction,
+  removeFactorConfigAction,
+  getWeeklyFactorAnalysesAction,
+  runWeeklyFactorAnalysisAction,
+} from "@/src/actions/advice-actions"
+import type { FactorQueryConfigDTO, WeeklyFactorAnalysisDTO, FactorType } from "@/src/actions/advice-actions"
 import { Input } from "@/components/ui/input"
 
 // ─── 週次ニュース モックデータ ────────────────────────────────────────────
@@ -252,6 +262,65 @@ function getMockIndex(weekStart: Date): number {
   return ((weekDiff % weeklyAdvices.length) + weeklyAdvices.length) % weeklyAdvices.length
 }
 
+// ─── 影響要因の定義 ────────────────────────────────────────────────────────
+
+const FACTOR_DEFS = [
+  { type: "weather" as FactorType, icon: CloudSun, title: "気象情報" },
+  { type: "global" as FactorType, icon: Globe, title: "国際情勢" },
+  { type: "trend" as FactorType, icon: TrendingUp, title: "トレンド分析" },
+]
+
+// ─── フィルター複数選択コンポーネント ────────────────────────────────────
+
+interface FactorFilterSelectProps {
+  queries: NewsQueryDTO[]
+  selectedGroupIds: string[]
+  onAdd: (queryGroupId: string) => void
+  onRemove: (queryGroupId: string) => void
+}
+
+function FactorFilterSelect({ queries, selectedGroupIds, onAdd, onRemove }: FactorFilterSelectProps) {
+  const [open, setOpen] = useState(false)
+  const label =
+    selectedGroupIds.length === 0
+      ? "フィルターを選択..."
+      : `${selectedGroupIds.length}件のフィルター選択中`
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full justify-between text-left font-normal">
+          <span className={selectedGroupIds.length === 0 ? "text-muted-foreground" : ""}>{label}</span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2" align="start">
+        {queries.length === 0 ? (
+          <p className="text-sm text-muted-foreground px-2 py-1">フィルターがありません</p>
+        ) : (
+          <div className="space-y-1">
+            {queries.map((q) => (
+              <label
+                key={q.queryGroupId}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+              >
+                <Checkbox
+                  checked={selectedGroupIds.includes(q.queryGroupId)}
+                  onCheckedChange={(checked: boolean | "indeterminate") => {
+                    if (checked === true) onAdd(q.queryGroupId)
+                    else onRemove(q.queryGroupId)
+                  }}
+                />
+                <span className="text-sm leading-none">{q.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 // ─── 定数 ─────────────────────────────────────────────────────────────────
 
 const COLLAPSE_THRESHOLD = 10
@@ -263,9 +332,13 @@ interface Props {
   initialWeekStart: Date
   initialQueries: NewsQueryDTO[]
   initialDefaultExcludedSources: string | null
+  initialFactorConfigs: FactorQueryConfigDTO[]
+  initialFactorAnalyses: WeeklyFactorAnalysisDTO[]
+  /** true のとき、今週でも5件以上ニュースがあれば分析ボタンを表示する */
+  flexibleAnalysis?: boolean
 }
 
-export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries, initialDefaultExcludedSources }: Props) {
+export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries, initialDefaultExcludedSources, initialFactorConfigs, initialFactorAnalyses, flexibleAnalysis = false }: Props) {
   const [weekStart, setWeekStart] = useState<Date>(initialWeekStart)
 
   // ─── 週次ニュース ─────────────────────────────────────────────────
@@ -282,6 +355,13 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
   const [isLoading, startLoading] = useTransition()
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+
+  // ─── 影響要因分析 state ───────────────────────────────────────────
+
+  const [factorConfigs, setFactorConfigs] = useState<FactorQueryConfigDTO[]>(initialFactorConfigs ?? [])
+  const [factorAnalyses, setFactorAnalyses] = useState<WeeklyFactorAnalysisDTO[]>(initialFactorAnalyses ?? [])
+  const [isRunningAnalysis, startRunningAnalysis] = useTransition()
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
 
   // ─── デフォルト除外ソース設定 ─────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -321,12 +401,16 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
     })
   }, [])
 
-  // weekStart 変化時に関連ニュースを再取得
+  // weekStart 変化時に関連ニュースと factor 分析結果を再取得
   const prevWeekStart = useRef<number | null>(null)
   useEffect(() => {
     const t = weekStart.getTime()
     if (prevWeekStart.current !== null && prevWeekStart.current !== t) {
       loadNewsView(weekStart)
+      startRunningAnalysis(async () => {
+        const res = await getWeeklyFactorAnalysesAction(weekStart.toISOString())
+        if (res.success) setFactorAnalyses(res.data)
+      })
     }
     prevWeekStart.current = t
   }, [weekStart, loadNewsView])
@@ -401,6 +485,52 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
 
   function toggleExpand(groupId: string) {
     setExpandedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }))
+  }
+
+  // ─── 影響要因分析ハンドラー ───────────────────────────────────────
+
+  function handleAddFactorConfig(factorType: FactorType, queryGroupId: string) {
+    startRunningAnalysis(async () => {
+      const res = await addFactorConfigAction(factorType, queryGroupId)
+      if (res.success) {
+        const cfgRes = await getWeeklyFactorAnalysesAction(weekStart.toISOString())
+        setFactorConfigs((prev) => {
+          const exists = prev.some(
+            (c) => c.factorType === factorType && c.queryGroupId === queryGroupId,
+          )
+          if (exists) return prev
+          return [
+            ...prev,
+            { id: crypto.randomUUID(), factorType, queryGroupId, createdAt: new Date() },
+          ]
+        })
+        if (cfgRes.success) setFactorAnalyses(cfgRes.data)
+      }
+    })
+  }
+
+  function handleRemoveFactorConfig(factorType: FactorType, queryGroupId: string) {
+    startRunningAnalysis(async () => {
+      const res = await removeFactorConfigAction(factorType, queryGroupId)
+      if (res.success) {
+        setFactorConfigs((prev) =>
+          prev.filter((c) => !(c.factorType === factorType && c.queryGroupId === queryGroupId)),
+        )
+      }
+    })
+  }
+
+  function handleRunAnalysis() {
+    setAnalysisError(null)
+    startRunningAnalysis(async () => {
+      const res = await runWeeklyFactorAnalysisAction(weekStart.toISOString())
+      if (res.success) {
+        setFactorAnalyses(res.data)
+      } else {
+        console.error("[handleRunAnalysis] error:", res.error)
+        setAnalysisError(res.error)
+      }
+    })
   }
 
   // ─── レンダリング ─────────────────────────────────────────────────
@@ -488,38 +618,118 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-base">影響要因分析</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">影響要因分析</CardTitle>
+              {(!isCurrentWeek(weekStart) || flexibleAnalysis) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRunAnalysis}
+                  disabled={isRunningAnalysis}
+                >
+                  {isRunningAnalysis ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      <Bot className="w-4 h-4 mr-1.5" />
+                      AI分析を実行
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            {isCurrentWeek(weekStart) && !flexibleAnalysis && (
+              <p className="text-xs text-muted-foreground mt-1">
+                週終了後にAI分析を実行できます。現在ニュースデータを収集中です。
+              </p>
+            )}
+            {isCurrentWeek(weekStart) && flexibleAnalysis && (
+              <p className="text-xs text-muted-foreground mt-1">
+                5件以上のニュースが収集されると分析を実行できます。
+              </p>
+            )}
+            {analysisError && (
+              <p className="text-xs text-destructive mt-1">{analysisError}</p>
+            )}
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {selectedWeek.factors.map((factor, index) => {
-                const Icon = factor.icon
+              {FACTOR_DEFS.map(({ type, icon: Icon, title }) => {
+                const analysis = factorAnalyses.find((a) => a.factorType === type)
+                const selectedGroupIds = factorConfigs
+                  .filter((c) => c.factorType === type)
+                  .map((c) => c.queryGroupId)
+
                 return (
-                  <div
-                    key={index}
-                    className={cn(
-                      "p-4 rounded-xl border",
-                      factor.impact === "high"
-                        ? "border-red-200 bg-red-50"
-                        : factor.impact === "medium"
-                          ? "border-yellow-200 bg-yellow-50"
-                          : "border-green-200 bg-green-50",
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Icon
+                  <div key={type} className="space-y-2">
+                    <FactorFilterSelect
+                      queries={queries}
+                      selectedGroupIds={selectedGroupIds}
+                      onAdd={(gid) => handleAddFactorConfig(type, gid)}
+                      onRemove={(gid) => handleRemoveFactorConfig(type, gid)}
+                    />
+                    {isCurrentWeek(weekStart) && !flexibleAnalysis ? (
+                      <div className="p-4 rounded-xl border border-blue-200 bg-blue-50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon className="w-5 h-5 text-blue-500" />
+                          <span className="font-medium text-blue-900">{title}</span>
+                        </div>
+                        <p className="text-sm text-blue-700">
+                          十分なデータが集まっていないため分析を実行できません。
+                        </p>
+                      </div>
+                    ) : analysis ? (
+                      <div
                         className={cn(
-                          "w-5 h-5",
-                          factor.impact === "high"
-                            ? "text-red-600"
-                            : factor.impact === "medium"
-                              ? "text-yellow-600"
-                              : "text-green-600",
+                          "p-4 rounded-xl border",
+                          analysis.impact === "high"
+                            ? "border-red-200 bg-red-50"
+                            : analysis.impact === "medium"
+                              ? "border-yellow-200 bg-yellow-50"
+                              : "border-green-200 bg-green-50",
                         )}
-                      />
-                      <span className="font-medium">{factor.title}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{factor.content}</p>
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon
+                            className={cn(
+                              "w-5 h-5",
+                              analysis.impact === "high"
+                                ? "text-red-600"
+                                : analysis.impact === "medium"
+                                  ? "text-yellow-600"
+                                  : "text-green-600",
+                            )}
+                          />
+                          <span className="font-medium">{title}</span>
+                          <Badge
+                            className={cn(
+                              "text-[11px] ml-auto",
+                              analysis.impact === "high"
+                                ? "bg-red-100 text-red-700"
+                                : analysis.impact === "medium"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-green-100 text-green-700",
+                            )}
+                          >
+                            影響度: {analysis.impact === "high" ? "高" : analysis.impact === "medium" ? "中" : "低"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{analysis.content}</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon className="w-5 h-5 text-muted-foreground" />
+                          <span className="font-medium text-muted-foreground">{title}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          フィルターを選択して「AI分析を実行」をクリックしてください。
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )
               })}

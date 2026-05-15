@@ -74,6 +74,13 @@ enum NewsImpact {
     @@map("news_impact")
   }
 
+enum FactorType {
+  weather
+  global
+  trend
+  @@map("factor_type")
+}
+
 // ============================================================
 // ユーザー・認証
 // ============================================================
@@ -680,7 +687,8 @@ model NewsQuery {
     createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
     deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz()
 
-    news BusinessNews[]
+    news                   BusinessNews[]
+    weeklyFactorAnalyses   WeeklyFactorAnalysis[]
 
     @@index([queryGroupId])
     @@map("news_query")
@@ -707,3 +715,34 @@ model BusinessNews {
   @@index([weekStart, queryId])
   @@map("business_news")                                   
 }               
+
+// ============================================================
+// 経営AIアドバイス
+// ============================================================
+
+model FactorQueryConfig {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  factorType   FactorType @map("factor_type")
+  queryGroupId String     @map("query_group_id") @db.Uuid 
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@unique([factorType, queryGroupId])  // 同タイプ×同グループの重複を防ぐ
+  @@index([factorType])
+  @@map("factor_query_config")
+}
+
+model WeeklyFactorAnalysis {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  weekStart    DateTime   @map("week_start") @db.Date
+  factorType   FactorType @map("factor_type")
+  queryId      String     @map("query_id") @db.Uuid  // 分析時点で使われた具体的クエリ
+  content      String     // LLM 出力テキスト（~100文字）
+  impact       NewsImpact // "high" | "medium" | "low"
+  generatedAt  DateTime   @default(now()) @map("generated_at") @db.Timestamptz()
+
+  query NewsQuery @relation(fields: [queryId], references: [id])
+
+  @@unique([weekStart, factorType]) 
+  @@index([weekStart])
+  @@map("weekly_factor_analysis")
+}
