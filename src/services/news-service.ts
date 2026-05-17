@@ -177,7 +177,6 @@ export async function fetchAndStoreAllActiveQueries(): Promise<void> {
   const queries = await listActiveQueries()
   if (queries.length === 0) return
 
-  const weekStart = getWeekStart(new Date())
   const defaultExcluded = await getDefaultExcludedSources()
 
   await Promise.all(
@@ -215,7 +214,7 @@ export async function fetchAndStoreAllActiveQueries(): Promise<void> {
           sourceName: a.sourceName,
           sourceUrl: a.sourceUrl,
           publishedAt: a.publishedAt,
-          weekStart,
+          weekStart: getWeekStart(a.publishedAt),
         }))
 
         await prisma.businessNews.createMany({ data, skipDuplicates: true })
