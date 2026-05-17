@@ -7,6 +7,10 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
 }
 
+function trimFashionsnapSuffix(text: string): string {
+  return text.replace(/このコンテンツは\s*FASHIONSNAP\s*が配信しています。\s*$/, "").trim()
+}
+
 export const fashionsnapRssProvider: NewsProvider = {
   async fetch(_query) {
     try {
@@ -49,7 +53,7 @@ export const fashionsnapRssProvider: NewsProvider = {
         results.push({
           externalId: guid || link,
           title: typeof rec.title === "string" ? rec.title : "",
-          summary: stripHtml(description) || null,
+          summary: trimFashionsnapSuffix(stripHtml(description)) || null,
           sourceName: "fashionsnap",
           sourceUrl: link,
           publishedAt: pubDateStr ? new Date(pubDateStr) : new Date(),

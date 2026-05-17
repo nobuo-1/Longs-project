@@ -48,8 +48,10 @@ import {
   removeFactorConfigAction,
   getWeeklyFactorAnalysesAction,
   runWeeklyFactorAnalysisAction,
+  getWeeklyNewsSummariesAction,
+  generateWeeklyNewsSummariesAction,
 } from "@/src/actions/advice-actions"
-import type { FactorQueryConfigDTO, WeeklyFactorAnalysisDTO, FactorType } from "@/src/actions/advice-actions"
+import type { FactorQueryConfigDTO, WeeklyFactorAnalysisDTO, WeeklyNewsSummaryDTO, FactorType } from "@/src/actions/advice-actions"
 import { Input } from "@/components/ui/input"
 
 // ─── 週次ニュース モックデータ ────────────────────────────────────────────
@@ -334,11 +336,12 @@ interface Props {
   initialDefaultExcludedSources: string | null
   initialFactorConfigs: FactorQueryConfigDTO[]
   initialFactorAnalyses: WeeklyFactorAnalysisDTO[]
+  initialNewsSummaries: WeeklyNewsSummaryDTO[]
   /** true のとき、今週でも5件以上ニュースがあれば分析ボタンを表示する */
   flexibleAnalysis?: boolean
 }
 
-export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries, initialDefaultExcludedSources, initialFactorConfigs, initialFactorAnalyses, flexibleAnalysis = false }: Props) {
+export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries, initialDefaultExcludedSources, initialFactorConfigs, initialFactorAnalyses, initialNewsSummaries, flexibleAnalysis = false }: Props) {
   const [weekStart, setWeekStart] = useState<Date>(initialWeekStart)
 
   // ─── 週次ニュース ─────────────────────────────────────────────────
@@ -362,6 +365,13 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
   const [factorAnalyses, setFactorAnalyses] = useState<WeeklyFactorAnalysisDTO[]>(initialFactorAnalyses ?? [])
   const [isRunningAnalysis, startRunningAnalysis] = useTransition()
   const [analysisError, setAnalysisError] = useState<string | null>(null)
+
+  // ─── 週次要約サマリー state ───────────────────────────────────────
+
+  const [newsSummaries, setNewsSummaries] = useState<WeeklyNewsSummaryDTO[]>(initialNewsSummaries ?? [])
+  const [isGeneratingSummaries, startGeneratingSummaries] = useTransition()
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [articlesExpanded, setArticlesExpanded] = useState<Record<string, boolean>>({})
 
   // ─── デフォルト除外ソース設定 ─────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -401,15 +411,20 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
     })
   }, [])
 
-  // weekStart 変化時に関連ニュースと factor 分析結果を再取得
+  // weekStart 変化時に関連ニュースと factor 分析結果・サマリーを再取得
   const prevWeekStart = useRef<number | null>(null)
   useEffect(() => {
     const t = weekStart.getTime()
     if (prevWeekStart.current !== null && prevWeekStart.current !== t) {
       loadNewsView(weekStart)
+      setArticlesExpanded({})
       startRunningAnalysis(async () => {
-        const res = await getWeeklyFactorAnalysesAction(weekStart.toISOString())
-        if (res.success) setFactorAnalyses(res.data)
+        const [factorRes, summaryRes] = await Promise.all([
+          getWeeklyFactorAnalysesAction(weekStart.toISOString()),
+          getWeeklyNewsSummariesAction(weekStart.toISOString()),
+        ])
+        if (factorRes.success) setFactorAnalyses(factorRes.data)
+        if (summaryRes.success) setNewsSummaries(summaryRes.data)
       })
     }
     prevWeekStart.current = t
@@ -531,6 +546,23 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
         setAnalysisError(res.error)
       }
     })
+  }
+
+  function handleGenerateSummaries() {
+    setSummaryError(null)
+    startGeneratingSummaries(async () => {
+      const res = await generateWeeklyNewsSummariesAction(weekStart.toISOString())
+      if (res.success) {
+        setNewsSummaries(res.data)
+      } else {
+        console.error("[handleGenerateSummaries] error:", res.error)
+        setSummaryError(res.error)
+      }
+    })
+  }
+
+  function toggleArticlesExpanded(groupId: string) {
+    setArticlesExpanded((prev) => ({ ...prev, [groupId]: !prev[groupId] }))
   }
 
   // ─── レンダリング ─────────────────────────────────────────────────
@@ -780,7 +812,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
       <div className="px-6 pb-6 space-y-6">
         {/* ツールバー */}
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -799,11 +831,34 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
               <RefreshCw className={cn("h-4 w-4 mr-1.5", isFetching && "animate-spin")} />
               {isFetching ? "取得中..." : "最新ニュースを取得"}
             </Button>
+            {(!isCurrentWeek(weekStart) || flexibleAnalysis) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateSummaries}
+                disabled={isGeneratingSummaries || queries.length === 0}
+              >
+                {isGeneratingSummaries ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    要約生成中...
+                  </>
+                ) : (
+                  <>
+                    <Bot className="h-4 w-4 mr-1.5" />
+                    要約レポートを生成
+                  </>
+                )}
+              </Button>
+            )}
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1.5" />
               検索フィルターを追加
             </Button>
           </div>
+          {summaryError && (
+            <p className="w-full text-xs text-destructive text-right">{summaryError}</p>
+          )}
         </div>
 
         {/* 共通設定パネル */}
@@ -869,6 +924,11 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
           <div className="text-center py-8 text-muted-foreground text-sm">読み込み中...</div>
         ) : (
           viewData.map((group) => {
+            const summary = newsSummaries.find((s) => s.queryGroupId === group.queryGroupId)
+            // サマリーがある場合はデフォルトで記事を折りたたむ
+            const articlesDefaultCollapsed = !!summary
+            const isArticlesExpanded = articlesExpanded[group.queryGroupId] ?? !articlesDefaultCollapsed
+
             const isExpanded = expandedGroups[group.queryGroupId] ?? false
             const hasMore = group.articles.length > COLLAPSE_THRESHOLD
             const visibleArticles =
@@ -898,11 +958,50 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* 週次要約レポート */}
+                  {summary && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <Bot className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium text-primary">週次要約レポート</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(summary.generatedAt).toLocaleString("ja-JP", {
+                            timeZone: "Asia/Tokyo",
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}生成
+                        </span>
+                      </div>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{summary.content}</p>
+                    </div>
+                  )}
+
+                  {/* 記事一覧トグル */}
+                  {group.articles.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-muted-foreground hover:text-foreground justify-between"
+                      onClick={() => toggleArticlesExpanded(group.queryGroupId)}
+                    >
+                      <span>ニュース記事 ({group.articles.length} 件)</span>
+                      {isArticlesExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
+
                   {group.articles.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-2">
                       この週のニュースはありません。「最新ニュースを取得」ボタンで取得できます。
                     </p>
-                  ) : (
+                  ) : isArticlesExpanded ? (
                     <>
                       {visibleArticles.map((article) => (
                         <div
@@ -996,7 +1095,7 @@ export function AdviceNewsShell({ initialData, initialWeekStart, initialQueries,
                         </Button>
                       )}
                     </>
-                  )}
+                  ) : null}
                 </CardContent>
               </Card>
             )

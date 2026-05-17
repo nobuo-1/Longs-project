@@ -208,6 +208,72 @@ export async function generateFactorAnalysis(
 }
 
 // ============================================================
+// 週次ニュース要約（検索フィルター単位）
+// ============================================================
+
+export async function generateNewsSummary(
+  queryName: string,
+  articles: { title: string; summary: string | null; publishedAt: Date }[],
+  weekLabel: string,
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new Error("GEMINI_API_KEY が設定されていません")
+
+  if (articles.length === 0) {
+    return "対象週のニュースデータがありません。"
+  }
+
+  const ai = new GoogleGenAI({ apiKey })
+
+  const articlesList = articles
+    .slice(0, 30)
+    .map((a, i) => `${i + 1}. ${a.title}${a.summary ? `\n   ${a.summary}` : ""}`)
+    .join("\n")
+
+  const systemPrompt =
+    "あなたは中立的な事実報告者です。以下のニュース記事に書かれた事実のみを日本語で要約してください。" +
+    "【必須ルール】\n" +
+    "・提言・推奨・示唆・アドバイスは一切含めないこと（「〜が重要です」「〜を検討すべき」「〜に注目が必要」等は禁止）\n" +
+    "・記者・アナリストの意見や予測も、それが記事に明記されている場合のみ「〇〇は〜と述べた」「〜との見方が出ている」など出典を明示した形で引用すること\n" +
+    "・スポーツ、芸能ゴシップ、個人の犯罪など、アパレル事業経営と無関係なニュースは要約から除外すること\n" +
+    "【ボリューム配分】\n" +
+    "・アパレル業界・ファッション・繊維・小売・消費動向・物流・為替・原材料に関するニュースを優先し、文字数を多く割り当てること\n" +
+    "・言及記事数が少ないトピックは簡潔に触れる程度にとどめること\n" +
+    "・記事全体が多く多様な場合は800文字程度、記事が少ないまたは内容が偏っている場合は内容量に応じて200文字程度まで縮小すること\n" +
+    "箇条書きではなく自然な文章形式で記述してください。要約テキストのみ出力してください（JSONや前置き不要）。"
+
+  const prompt = `${systemPrompt}\n\n対象週: ${weekLabel}\nフィルター名: ${queryName}\n\nニュース記事一覧:\n${articlesList}`
+
+  console.log("[generateNewsSummary] Request:", JSON.stringify({
+    model: FACTOR_TEXT_MODEL,
+    queryName,
+    weekLabel,
+    articleCount: articles.length,
+    promptLength: prompt.length,
+  }, null, 2))
+
+  const response = await ai.models.generateContent({
+    model: FACTOR_TEXT_MODEL,
+    contents: [{ text: prompt }],
+  })
+
+  const text = (response.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim()
+
+  console.log("[generateNewsSummary] Response:", JSON.stringify({
+    queryName,
+    textLength: text.length,
+    usageMetadata: response.usageMetadata,
+    finishReason: response.candidates?.[0]?.finishReason,
+  }, null, 2))
+
+  if (!text) {
+    return "要約の生成に失敗しました。"
+  }
+
+  return text
+}
+
+// ============================================================
 // Gemini Embedding
 // ============================================================
 

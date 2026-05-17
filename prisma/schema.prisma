@@ -689,6 +689,7 @@ model NewsQuery {
 
     news                   BusinessNews[]
     weeklyFactorAnalyses   WeeklyFactorAnalysis[]
+    weeklyNewsSummaries    WeeklyNewsSummary[]
 
     @@index([queryGroupId])
     @@map("news_query")
@@ -742,7 +743,24 @@ model WeeklyFactorAnalysis {
 
   query NewsQuery @relation(fields: [queryId], references: [id])
 
-  @@unique([weekStart, factorType]) 
+  @@unique([weekStart, factorType])
   @@index([weekStart])
   @@map("weekly_factor_analysis")
+}
+
+model WeeklyNewsSummary {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  weekStart    DateTime @map("week_start") @db.Date
+  queryGroupId String   @map("query_group_id") @db.Uuid
+  queryId      String   @map("query_id") @db.Uuid
+  queryName    String   @map("query_name")
+  content      String
+  articleCount Int      @map("article_count")
+  generatedAt  DateTime @default(now()) @map("generated_at") @db.Timestamptz()
+
+  query NewsQuery @relation(fields: [queryId], references: [id])
+
+  @@unique([weekStart, queryGroupId])
+  @@index([weekStart])
+  @@map("weekly_news_summary")
 }

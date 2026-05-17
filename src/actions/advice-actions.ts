@@ -2,9 +2,9 @@
 
 import { requireRole } from "@/src/lib/permissions"
 import * as svc from "@/src/services/advice-service"
-import type { FactorQueryConfigDTO, WeeklyFactorAnalysisDTO, FactorType } from "@/src/services/advice-service"
+import type { FactorQueryConfigDTO, WeeklyFactorAnalysisDTO, WeeklyNewsSummaryDTO, FactorType } from "@/src/services/advice-service"
 
-export type { FactorQueryConfigDTO, WeeklyFactorAnalysisDTO, FactorType }
+export type { FactorQueryConfigDTO, WeeklyFactorAnalysisDTO, WeeklyNewsSummaryDTO, FactorType }
 
 // ─── FactorQueryConfig ────────────────────────────────────────
 
@@ -73,6 +73,43 @@ export async function getWeeklyFactorAnalysesAction(
     }
     console.error("[getWeeklyFactorAnalysesAction]", e)
     return { success: false, error: "分析結果の取得に失敗しました" }
+  }
+}
+
+// ─── WeeklyNewsSummary ────────────────────────────────────────
+
+export async function getWeeklyNewsSummariesAction(
+  weekStartIso: string,
+): Promise<{ success: true; data: WeeklyNewsSummaryDTO[] } | { success: false; error: string }> {
+  try {
+    await requireRole(["admin", "manager"])
+    const data = await svc.getWeeklyNewsSummaries(new Date(weekStartIso))
+    return { success: true, data }
+  } catch (e) {
+    if (e instanceof Error && (e.message === "認証が必要です" || e.message === "権限がありません")) {
+      return { success: false, error: e.message }
+    }
+    console.error("[getWeeklyNewsSummariesAction]", e)
+    return { success: false, error: "要約の取得に失敗しました" }
+  }
+}
+
+export async function generateWeeklyNewsSummariesAction(
+  weekStartIso: string,
+): Promise<{ success: true; data: WeeklyNewsSummaryDTO[] } | { success: false; error: string }> {
+  try {
+    await requireRole(["admin", "manager"])
+    const data = await svc.generateWeeklyNewsSummaries(new Date(weekStartIso))
+    return { success: true, data }
+  } catch (e) {
+    if (e instanceof Error && (e.message === "認証が必要です" || e.message === "権限がありません")) {
+      return { success: false, error: e.message }
+    }
+    if (e instanceof Error) {
+      return { success: false, error: e.message }
+    }
+    console.error("[generateWeeklyNewsSummariesAction]", e)
+    return { success: false, error: "要約の生成に失敗しました" }
   }
 }
 
