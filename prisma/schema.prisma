@@ -118,6 +118,21 @@ enum SourceTable {
   @@map("source_table")
 }
 
+enum ReportLens {
+  balanced
+  cashflow
+  inventory
+  sales
+  @@map("report_lens")
+}
+
+enum ReportStatus {
+  generating
+  done
+  error
+  @@map("report_status")
+}
+
 // ============================================================
 // ユーザー・認証
 // ============================================================
@@ -136,6 +151,7 @@ model UserAccount {
   sessions            Session[]
   dataImports         DataImport[]
   actionRecommendations ActionRecommendation[]
+  managementReports ManagementReport[]
 
   @@map("user_account")
 }
@@ -818,6 +834,38 @@ model WeekCategorySelection {
    @@index([weekStart])
    @@map("week_category_selection")
  }
+
+model ManagementReport {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  // 入力条件
+  lensId            ReportLens   @map("lens_id")
+  sourceIds         String[]     @map("source_ids")
+  customInstruction String?      @map("custom_instruction")
+  periodRanges      Json?        @map("period_ranges")
+
+  // AI生成結果
+  executiveSummary  String?      @map("executive_summary")
+  decisions         Json?        // ReportDecision[]
+  actions           Json?        // string[]
+  riskNotes         Json?        @map("risk_notes")        // string[]
+  sourceSnapshot    Json?        @map("source_snapshot")   // ReportSourceSnapshot[]
+
+  // メタ情報
+  status            ReportStatus @default(generating)
+  aiModel           String?      @map("ai_model")
+  promptTokens      Int?         @map("prompt_tokens")
+  totalTokens       Int?         @map("total_tokens")
+  generatedAt       DateTime?    @map("generated_at") @db.Timestamptz()
+  createdBy         String?      @map("created_by") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz()
+
+  creator UserAccount? @relation(fields: [createdBy], references: [id])
+
+  @@index([createdBy, createdAt(sort: Desc)])
+  @@map("management_report")
+}
 
  model WeeklyCategoryAdvice {
    id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

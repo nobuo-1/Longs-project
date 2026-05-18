@@ -436,6 +436,134 @@ export async function generateInventoryActionRecommendations(
 }
 
 // ============================================================
+// 経営判断レポート生成（Files API使用）
+// ============================================================
+
+export type ManagementReportInput = {
+  lens: { id: string; label: string; description: string }
+  customInstruction: string
+  sections: Array<{
+    label: string
+    content: string
+  }>
+}
+
+export type ManagementReportResult = {
+  executiveSummary: string
+  decisions: Array<{ title: string; body: string; source: string }>
+  actions: Array<{ priority: number; body: string; timing: string }>
+  riskNotes: string[]
+  promptTokens: number
+  totalTokens: number
+}
+
+const REPORT_MODEL = "gemini-2.5-flash"
+
+export async function generateManagementReport(
+  input: ManagementReportInput,
+): Promise<ManagementReportResult> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new Error("GEMINI_API_KEY が設定されていません")
+
+  const ai = new GoogleGenAI({ apiKey })
+
+  const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+  const customInstructionNote = input.customInstruction
+    ? `・customInstruction が指定されている場合は「追加条件: ${input.customInstruction}」を必ず1件含める`
+    : ""
+
+  const systemPrompt =
+    `あなたはアパレル企業の経営コンサルタントです。\n` +
+    `以下に提供するデータをもとに、${input.lens.label}（${input.lens.description}）の視点で経営判断レポートを作成してください。\n\n` +
+    `レポート生成日時: ${now}\n` +
+    `追加指示: ${input.customInstruction || "なし"}\n\n` +
+    `## 出力形式\n\n` +
+    `必ず次のJSON形式のみで回答してください。JSON以外のテキストは一切含めないでください。\n\n` +
+    `{\n` +
+    `  "executiveSummary": "string",\n` +
+    `  "decisions": [\n` +
+    `    { "title": "string", "body": "string", "source": "string" }\n` +
+    `  ],\n` +
+    `  "actions": [\n` +
+    `    { "priority": number, "body": "string", "timing": "string" }\n` +
+    `  ],\n` +
+    `  "riskNotes": ["string"]\n` +
+    `}\n\n` +
+    `## 各フィールドの仕様\n\n` +
+    `### executiveSummary\n` +
+    `- 選択されたすべてのデータソースを横断した経営状況の総括を200〜400字で記述する\n` +
+    `- 数値が含まれる場合は具体的な数値を引用して根拠を示す\n` +
+    `- 「〜が必要です」「〜を優先すべきです」など判断として締める\n\n` +
+    `### decisions（経営判断）\n` +
+    `- 3〜5件を返す\n` +
+    `- title: 領域を端的に示す10字以内の見出し（例: 「資金繰りの判断」）\n` +
+    `- body: 60〜120字。具体的な数値や傾向を引用し「〜すべき」など意思決定として締める\n` +
+    `- source: 根拠データソース名（例: 「ファイナンスフロー / 入出金シミュレーション」）\n\n` +
+    `### actions（優先アクション）\n` +
+    `- 3〜5件を返す\n` +
+    `- priority: 1始まりの優先順位（1が最優先）\n` +
+    `- body: 50〜100字。担当者が即日着手できる粒度にする\n` +
+    `- timing: 「今週中」「今月中」「来月以降」のいずれか\n\n` +
+    `### riskNotes（レポート作成時の前提）\n` +
+    `- 1〜3件を返す\n` +
+    `- レポートの判断精度に影響する前提条件・データ欠損・速報値の扱いなどを記載する\n` +
+    customInstructionNote
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parts: any[] = [{ text: systemPrompt }]
+
+  for (const section of input.sections) {
+    if (!section.content || section.content.trim().length === 0) continue
+    parts.push({ text: `## ${section.label}\n${section.content}` })
+  }
+
+  console.log(`[generateManagementReport] Calling generateContent with ${parts.length} parts`)
+  const response = await ai.models.generateContent({
+    model: REPORT_MODEL,
+    contents: [{ role: "user", parts }],
+  })
+
+  const text = (response.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim()
+
+  console.log("[generateManagementReport] Response:", JSON.stringify({
+    model: REPORT_MODEL,
+    lens: input.lens.id,
+    sectionCount: input.sections.length,
+    textLength: text.length,
+    usageMetadata: response.usageMetadata,
+  }, null, 2))
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error("レポートの生成に失敗しました（JSON未検出）")
+
+  const parsed = JSON.parse(jsonMatch[0])
+  const usage = response.usageMetadata
+
+  return {
+    executiveSummary: String(parsed.executiveSummary ?? ""),
+    decisions: Array.isArray(parsed.decisions)
+      ? parsed.decisions.map((d: Record<string, unknown>) => ({
+          title: String(d.title ?? ""),
+          body: String(d.body ?? ""),
+          source: String(d.source ?? ""),
+        }))
+      : [],
+    actions: Array.isArray(parsed.actions)
+      ? parsed.actions
+          .map((a: Record<string, unknown>, i: number) => ({
+            priority: typeof a.priority === "number" ? a.priority : i + 1,
+            body: String(a.body ?? ""),
+            timing: String(a.timing ?? "今月中"),
+          }))
+          .sort((a: { priority: number }, b: { priority: number }) => a.priority - b.priority)
+      : [],
+    riskNotes: Array.isArray(parsed.riskNotes) ? parsed.riskNotes.map((n: unknown) => String(n)) : [],
+    promptTokens: usage?.promptTokenCount ?? 0,
+    totalTokens: usage?.totalTokenCount ?? 0,
+  }
+}
+
+// ============================================================
 // Gemini Embedding
 // ============================================================
 
